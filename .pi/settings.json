@@ -1,0 +1,4 @@
+{
+  "defaultProvider": "nous-portal",
+  "defaultModel": "stepfun/step-3.7-flash:free"
+}

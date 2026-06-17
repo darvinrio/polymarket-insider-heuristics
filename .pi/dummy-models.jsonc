@@ -1,0 +1,30 @@
+// dummy for git only
+{
+  "providers": {
+    "nous-portal": {
+      "baseUrl": "https://inference-api.nousresearch.com/v1",
+      "api": "openai-completions",
+      "apiKey": "$NOUS_PORTAL_API_KEY",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false,
+      },
+      "models": [
+        {
+          "id": "stepfun/step-3.7-flash:free",
+          "name": "StepFun Step 3.7 Flash Free",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "contextWindow": 256000,
+          "maxTokens": 256000,
+          "cost": {
+            "input": 0.2,
+            "output": 1.15,
+            "cacheRead": 0.04,
+            "cacheWrite": 0,
+          },
+        },
+      ],
+    },
+  },
+}

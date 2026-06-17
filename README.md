@@ -23,3 +23,21 @@ behavior. Explain your methodology.
 3. Investigation artifacts in CSV format
 
 Please email your results to Courtney.fisher@inca.digital
+
+## Commands
+
+env commands:
+```sh
+set -a       # variable export
+source .env  # load environment variables
+set +a       # variable export disable
+```
+
+git commands:
+```sh
+# delete local merged branches
+git branch --merged | grep -v '\*' | xargs -n 1 git branch -d
+
+# prune origin deleted branches
+git remote prune origin
+```
