@@ -1,3 +1,5 @@
+-- https://dune.com/queries/7743051
+
 with
 trades as (
     select *,
@@ -6,7 +8,7 @@ trades as (
         if(is_full_order, null, maker_usd) as fill_size,
         if(is_full_order, maker_usd, null) as bet_size,
         -- ^ cause taker is maker in full order
-        if(is_full_order, spread, null) as order_spread
+        if(is_full_order and spread > 0, spread, null) as order_spread
     from query_7778683
     -- where true
     -- and taker not in (
@@ -22,7 +24,6 @@ maker_stats as (
         count(tx_hash_fill) as maker_fills,
         approx_distinct(tx_hash_fill) as maker_trades,
         sum(shares) as shares_filled,
-        -- approx_percentile(shares, [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]) as percentiles_maker_usd,
         avg(maker_usd) as avg_fill,
         max(maker_usd) as max_fill,
         min(maker_usd) as min_fill,
@@ -46,16 +47,17 @@ taker_stats as (
         count(tx_hash_fill) as taker_fills,
         count(tx_hash_full_order) as taker_trades,
         sum(shares) as taker_shares,
-        -- approx_percentile(shares, [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]) as percentiles_taker_usd,
         avg(bet_size) as avg_bet_size,
         max(bet_size) as max_bet_size,
         min(bet_size) as min_bet_size,
         approx_percentile(bet_size, 0.5) as median_bet_size,
         approx_percentile(bet_size, 0.9) as p90_bet_size,
+        approx_percentile(bet_size, 0.9) - approx_percentile(bet_size, 0.5) as p90_p50_range_bet_size,
         stddev_pop(bet_size) as stddev_bet_size,
         avg(order_spread) as avg_spread,
         approx_percentile(order_spread, 0.5) as median_spread,
         approx_percentile(order_spread, 0.9) as p90_spread,
+        approx_percentile(order_spread, 0.9) - approx_percentile(order_spread, 0.5) as p90_p50_range_spread,
         stddev_pop(order_spread) as stddev_spread,
         min(block_time) as first_taker_trade_time,
         count(
@@ -120,10 +122,13 @@ select
     min_bet_size,
     median_bet_size,
     p90_bet_size,
+    p90_p50_range_bet_size,
     stddev_bet_size,
     avg_spread,
     median_spread,
     p90_spread,
+    p90_p50_range_spread,
+    stddev_spread,
     first_taker_trade_time,
 
     coalesce(cast(total_taker_usd as double)/nullif(usd_vol,0),0) as taker_vol_dominance,
