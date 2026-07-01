@@ -92,7 +92,11 @@ select
     user,
     usd_vol,
     total_trades,
-    least(first_fill_time, first_taker_trade_time) as first_trade,
+    coalesce(
+        least(first_fill_time, first_taker_trade_time),
+        first_fill_time,
+        first_taker_trade_time
+    ) as first_trade,
 
     -- maker stats
     total_filled_usd,
@@ -134,8 +138,8 @@ select
     coalesce(cast(taker_notional_farm_shares as double)/nullif(total_shares,0),0) as taker_notional_farm_shares_dominance,
     coalesce(cast((taker_yield_trades + taker_notional_farm_trades) as double)/nullif(taker_trades,0),0) as non_directional_trade_dominance
 from user_joined
--- where true
+where true
 -- and total_trades > 100 and usd_vol > 10000
--- and user = 0x2c74ca314d1e50cde35fa36de9bbde260a2dd632
+-- and user = 0xdb595e005ce61994f85df5cb7f6ab663804f0f16
 -- order by non_directional_trade_dominance desc, total_trades desc
 -- limit 10

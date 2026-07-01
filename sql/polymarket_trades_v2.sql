@@ -4,18 +4,23 @@ short_list_markets as (
         -- *,
         from_hex(condition_id) as condition_id,
         tags,
-        market_start_time,
-        market_end_time,
+        from_iso8601_timestamp(market_start_time) as market_start_time,
+        from_iso8601_timestamp(market_end_time) as market_end_time,
         resolved_on_timestamp,
         outcome
     from polymarket_polygon.market_details
     where true
-    and resolved_on_timestamp > date'2025-11-01'
+    and from_iso8601_timestamp(market_start_time) > date'2025-11-01'
     and resolved_on_timestamp < date'2026-04-28'
-    and resolved_on_timestamp < date'2025-12-01'
+    -- and resolved_on_timestamp < date'2025-12-01'
     and cardinality(array_intersect(
         split(tags, ', '),
-        ['Crypto Prices', 'Up or Down', 'Esports', 'Recurring', 'Games', 'Sports']
+        [
+            'Crypto Prices', 'Up or Down',
+            'Esports', 'Recurring',
+            'Games', 'Sports',
+            'Tweet Markets'
+        ]
     )) = 0
 ),
 trades_level_1 as (
@@ -41,10 +46,14 @@ trades_level_1 as (
             then true
             else false
         end as is_full_order,
-        least(
+        coalesce(
+            least(
+                resolved_on_timestamp,
+                market_end_time
+            ),
             resolved_on_timestamp,
-            from_iso8601_timestamp(market_end_time)
-      ) as orders_end_time
+            market_end_time
+        ) as orders_end_time
     from polymarket_polygon.market_trades t
         join short_list_markets s
             on t.condition_id = s.condition_id
@@ -52,7 +61,7 @@ trades_level_1 as (
         -- and block_month >= date'2024-08-01'
         and block_month >= date'2025-11-01'
         and block_month <= date'2026-05-01'
-        and block_month < date'2025-12-01'
+        -- and block_month < date'2025-12-01'
         and contract_version = 'v1'
         -- and condition_id in (select condition_id from short_list_markets)
         -- and block_month <= date'2024-08-01'
@@ -142,15 +151,15 @@ select
     taker_usd,
     max_taker_price,
     min_taker_price,
-    max_taker_price-min_taker_price as spread,
+    round(max_taker_price-min_taker_price, 6) as spread,
     case when taker_price > 0.95
         and lower(final_outcome) = lower(taker_token_outcome)
-        and date_diff('hour', block_time, orders_end_time) <= 24
+        and date_diff('hour', block_time, orders_end_time) <= 48
     then True
     else False end as is_yield_farm_trade,
     case when taker_price < 0.05
         and lower(final_outcome) != lower(taker_token_outcome)
-        and date_diff('hour', block_time, orders_end_time) <= 24
+        and date_diff('hour', block_time, orders_end_time) <= 48
     then True
     else False end as is_notional_farm_trade
 from trades_level_3
