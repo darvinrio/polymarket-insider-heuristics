@@ -14,7 +14,7 @@ short_list_markets as (
     where true
     and from_iso8601_timestamp(market_start_time) > date'2025-11-01'
     and resolved_on_timestamp < date'2026-04-28'
-    -- and resolved_on_timestamp < date'2026-02-01'
+    -- and resolved_on_timestamp < date'2025-12-01'
     and cardinality(array_intersect(
         split(tags, ', '),
         [
@@ -63,7 +63,7 @@ trades_level_1 as (
         -- and block_month >= date'2024-08-01'
         and block_month >= date'2025-11-01'
         and block_month <= date'2026-05-01'
-        -- and block_month < date'2026-02-01'
+        -- and block_month < date'2025-12-01'
         and contract_version = 'v1'
         -- and condition_id in (select condition_id from short_list_markets)
         -- and block_month <= date'2024-08-01'

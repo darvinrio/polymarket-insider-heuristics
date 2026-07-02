@@ -9,8 +9,8 @@ trades as (
         0xc5d563a36ae78145c45a50134d48a1215220f80a  -- negrisk v1
     )
     -- filter out inconsequential trades
-    -- and not(is_yield_farm_trade)
-    -- and not(is_notional_farm_trade)
+    and not(is_yield_farm_trade)
+    and not(is_notional_farm_trade)
 ),
 user_stats as (
     select * from query_7743051
@@ -56,9 +56,17 @@ labelling_trades as (
             (t.spread / u.p90_spread) - 1, 0
         ) as user_spread_anomaly_score,
         if(
-            date_diff('hour', t.block_time, t.orders_end_time) <= 24
-            and maker_price < 0.4
-            and lower(t.final_outcome) = lower(t.maker_token_outcome),
+            date_diff('hour', t.block_time, t.orders_end_time) <= 24 and (
+                (
+                    maker_side_corrected = 'BUY'
+                    and maker_price < 0.3
+                    and lower(t.final_outcome) = lower(t.maker_token_outcome)
+                ) or (
+                    maker_side_corrected = 'SELL'
+                    and maker_price < 0.7
+                    and lower(t.final_outcome) != lower(t.maker_token_outcome)
+                )
+            ),
             1, 0
         ) as contrarian_trade
     from trades t
