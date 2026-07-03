@@ -102,10 +102,20 @@ We will define these signals as follows:
   ```
   (x / p90_percentile([x1 ... xn])) - 1
   ```
-* **Spread size anomaly** - A similar anomaly score is computed for the spread size of a trade. Since spread size contains a lot of zero values, we particularly filter for only non-zero values when computing the anomaly score. If the actual spread size is `x` and `[x1 ... xn]` is all the spread sizes in a market or user partition, then the anomaly score is
+* **Spread size anomaly** - A similar anomaly score is computed for the spread size of a trade. Since spread size contains a lot of zero values, we particularly filter for only non-zero values when computing the anomaly score. A sanity filter to only consider values higher than 1e6 is applied to avoid values smaller than USDC decimals, arising from float precision issues. If the actual spread size is `x` and `[x1 ... xn]` is all the spread sizes in a market or user partition, then the anomaly score is
   ```
   (x / p90_percentile([x1 ... xn] where xi > 0)) - 1
   ```
+
+Thus we have 2 qualitative signals:
+1. `fresh_wallet_trade`
+2. `contrarian_trade`
+And 4 quantitative signals:
+1. `market_betsize_anomaly_score`
+2. `user_betsize_anomaly_score`
+3. `market_spread_anomaly_score`
+4. `user_spread_anomaly_score`
+
 
 #### Why `z-score` was not utilized ? 
 `z-score` was not utilized because it assumes a normal distribution of data. Both bet-size and spread size are extremely right skewed, so `z-score` is not a suitable measure for these variables.
@@ -139,4 +149,92 @@ You can see how the wallet sells `YES` token, when it never bought it. Turns out
 1. ERC1155 have `batchTransfers` which need to be unwrapped, involving a cross join. This increases computational expense, esp alot of the markets we focus on are NegRisk, with multiple options and multiple YES/NO pairs transfered in a single batch. 
 2. Tracking ERC1155 transfers only gives us the balance at resolution or at any chose instant. However, to calculate PnL we still need trades to compute invested amounts and realized profits. This means combining two 100+ GB datasets, and potentially joining them. Since these combined data need to be further combined with other datasets for aggregations, this would creap up the compute expense extremely. 
 
-For these two reasons, I ignore PnL as a signal.
+For these two reasons, we will be avoiding PnL based signals.
+
+## Building Composite Score
+
+We need to combine the signals into a single composite score to compare different trades. We have few problem with combining these signals:
+1. The quantitative signals have their own ranges, and our focus is on the outliers, hence we cannot perform simple normalization using averages or median.
+2. We have two binary qualitative signals, hence they need to be combined with quantitative signals and hence require a solid weight.
+
+Since each trade can be insider trade, we score each trade individually. We can then perform secondary aggregation to compute a wallet rank.
+For each trade, we compute the individual signals and flag the contrarian and fresh wallet trades.
+We now use this to filter out trades that do not have any anomalous signals. This reduces the trades count to a more manageable 1.84 million trades.
+Now, we can analyze the distribution of these trades to come up with weights and caps for the composite score.
+
+Analyzing the distribution of the quantitative scores, we notice that the distribution is zero-heavy. To prevent zero scores from affecting outliers, we ignore these scores when determiningg a cap for the quantitative scores.
+
+![Quantitative Scores Distribution](imgs/scores_dist.png)
+
+We choose values between P99 and P99.9 for the quantitative score cap.
+Since we are going with 99 and 99.9 percentile caps, atmost we cap a maximum of 2000 to 20000 trades in the dataset.
+For both market anomalies, we restrict cap to 100 points.
+For both user anomalies, we restrict cap to 50 points.
+We score any fresh wallet trade as 25 points.
+We score any contrarian trade as 75 points.
+
+This gives a composite score cap of max 100 + 100 + 50 + 50 + 25 + 75 = 400 points for the most anomalous trades. However, this anomaly combination is rarely reached in the dataset, with the most anomalous trade scoring 200 points. 
+
+When scoring users by aggregating their trades, we add an extra filter, where the score is summed, only if it was a winning trade, i.e the trade is made in the direction of the resolved outcome. 
+However, summing up the scores alone wouldn't allow us zero in on the anomalous traders, as this score is now strongly correlated with the volume of trading by the user. 
+To combat this, we find the P99 percentile value for the user as the user's score. This way, anomalous traders with low volume would have their highest scored trade as the score, while highly active traders, would have their score scaled down by the volume of their low scoring trades. 
+
+## Future Scope:
+
+#### 1. Improving Markets and Decision filters. 
+
+One of the top 10 trades by our composite score is a **"Nuclear weapon detonation by June 30?"** trade that buys `NO` tokens for 20,000 USD. A trade that receives 176 points
+
+
+| point type |	points | 
+| - | - |
+| market_betsize_anomaly_score | 100 |
+| user_betsize_anomaly_score | 50 |
+| market_spread_anomaly_score | 1 |
+| user_spread_anomaly_score | 0 |
+| fresh_wallet_trade | 25 |
+| contrarian_trade | 0 |
+| total | 176 |
+
+This is a trade, that could be have been filtered, if we had better filters in place for Market Decision combos. A better filter would have been where:
+1. A `NO` buy on **"Nuclear weapon detonation by June 30?"** is more likely to be a non-insider trade
+2. A `YES` buy on **"Nuclear weapon detonation by June 30?"** is more likely to be an insider trade
+
+In this project, this was a more manual effort, where individual markets need to be inspected and decision needs to be made on a market-by-market basis. 
+Once can also argue that, an insider could buy a `NO` token on the same market, when they know for sure there is no likelyhood of Nuclear Launch.
+
+#### 2. Past trading context
+
+Currently the scoring is completely based on the current trade. Due the size of the dataset, injecting past context into the trade is too expensive at this stage. A simple flag to indicate whether the new trade is increasing the position of the user, and score to quantify the size this increase with respect to the user's previous trades and user's existing position is a strong measure for the user's conviction.
+The opposite of this, can be used to measure how much a user's conviction decreased.
+
+This would have been a very handy measurement in the Nuclear weapon market, where an insider believes there is no likelyhood of Nuclear Launch, gauging the conviction of the insider. Moreover, users switching from `YES` to `NO` on the same market in a short period is another strong signal that can be built using past trading context.
+
+#### 3. More robust statistics
+
+We currently use measures of central tendency to measure outliers. However, these measures are mostly used to detect outliers than to score them.
+Moreover, we use quantile based capping to cap the outliers. Using better alternatives to scale outliers would be more appropriate. 
+A solution, that was explored, but was eventually dropped, due to computational constraints. We could find appropriate lower thresholds of score, above which we can definitively that the score is an outlier. From there we can perform quantile scaling with some logarithmic components so the so extremely outliers are scaled down.
+
+Other than improving outlier score, a more robust framework for weighting different score is also important. Some late EDA on the scores showed that betsize anomalies were more frequently occuring than spread anomalies. Similarly user anomalies were more frequent than market anomalies. This could be an artifact of the standardized scoring utilized for scoring the anomalies. Care could be taken to tweak the scoring frameworks for a more evenly weighted scoring across different metrics.
+
+#### 4. Market clustering
+
+One of the most high profile cases in Polymarket insider trading, was **AlphaRacoon** the Google insider, who made close to 1 Million USD in profits betting on Google related markets. A majority of their profits came from taking positions on a cluster of markets that pointing to the same outcome. 
+
+The question was **"#1 Searched Person on Google this year?**. AlphaRacoon placed bets on **d4vd** `YES` and then proceeded to buy `NO` on **Trump**, **Pope Leo XIV**, **Bianca Censori** and **Zohran Mamdani**. The **d4vd** market resolved to `YES` and other to `NO`, booking the user insane profits.
+
+In our current dataset, each of these markets are treated separately. However, these 5 markets are part of the same question, and derived from same insider information.
+
+#### 5. Wallet clustering
+
+Along with trades scored individually, we also score user's independantly. However, it has been noted that **“Which company will ZachXBT expose?”** contained clusters of wallets, who had relatively smaller trade sizes, but made trades in similar timestamps, arising sybil suspicion. 
+Clustering can be performed on clustered markets to identify wallet clusters. Bet sizes, trade timestamps, onchain source of funds are key features than can be used to cluster wallets and detect communities. 
+
+#### 6. External data
+
+Onchain data has been used successfully by alot of DeFi projects to counter sybils and other malicious actors. Data such as date of first transaction, source of funds, prior DeFi experience have been utilized to score risker wallet and clusters. These could have been valuable signals while flagging insider trades.
+
+A lot of markets were ignored due to their reliance on external API data for resolution. These also include markets, that can contain insider trading without explicitly depending on resolution. 
+
+An example market is the Tweets market. Tweets markets are Neg-risk markets, where multiple ranges are traded. This leads to cases where, for example **Elon Musk # tweets February 10 - February 17, 2026? - 200-219** market would only resolve at the end of February 17, 2026. But the 219 count would have reached sometime around February 13th, 2026.
