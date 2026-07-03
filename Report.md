@@ -1,10 +1,27 @@
 # Polymarket Insider Ranking
 
+## 1. Introduction
+
 The Aim of this report is to create a framework for Ranking Polymarket Insiders based on their polymarket trading activity derived completely from onchain data. The focus of this report is on whats onchain, as Polymarket access is restricted in my country of origin India. 
 
-## Data Prep
+## TLDR
 
-### Understanding whats Onchain
+* Dune `polymarket.trades` and `polymarket.market_details` tables are used as the base raw dataset
+* A combination of market filters and volume filters is applied to reduce dataset from 1.03 Billion to 18 million trades
+* Quantitative signals are scores as `(value/p90) - 1` and capped at 99.9 percentile value
+* 4 quantative signals: 
+  * trade betsize vs market average - capped at 100
+  * trade betsize vs user average - capped at 100
+  * fills spread size vs market average - capped at 50
+  * fills spread size vs user average - capped at 50
+* 2 qualitative signals: 
+  * fresh wallet trade - weight 25
+  * contrarian trade - weight 75
+* Further scoring based filtering reduces data from 18 million to 1.5 million suspicious trades
+
+## 2. Data Prep
+
+### 2.1. Understanding whats Onchain
 We will specifically utilize Dune Analytics `polymarket.trades` and `polymarket.market_details` tables. 
 Polymarket enables prediction markets by creating YES/NO pair tokens that represent the outcome of a given question. There are two types of questions, CTF and Neg Risk.
 CTF (Collateralized Trading Facility) contracts are used to resolve binary questions, while Neg Risk contracts are used to resolve non-binary multi-outcome questions.
@@ -29,7 +46,7 @@ Between November 01, 2025 and April 28, 2026, a total of 1.03 Billion trade entr
 Processing this massive dataset without any initial filtering, on Dune Analytics on a free tier is extremely slow, expensive, and borderline impossible with the 2 minute query limit.
 
 
-### Initial Filtering
+### 2.2. Initial Filtering
 Since the data set is too large to process,we will use EDA and qualitative analysis to reduce the dataset size. 
 We will employ a qualitative filter first, aiming to reduce the number of trades to process.
 1. We first filter out markets that are likely to have high volume due to arbitrage. Markets that are trading on Crypto and Stock Prices, tend to follow oracle prices and consist of alot of arbitrage bots looking to trade inefficienies against external markets. These categories extremely have high volume and highly recurrent markets, inviting strong automations. Moreover, users can actively hedge positions across various venues to protect downside risk, thus making it harder to signal.
@@ -55,7 +72,7 @@ Filtering for shortlisted markets with volume > $100k, gives us a 98% reduction 
 | 3. shortlisted markets | 25.09m | 224.25k | 676.51k |
 | 4. shortlisted markets (volume > $100k) | 18.30m | 191.86k | 609.31k |
 
-### Cleaning Dune Polymarket Trades
+### 2.3. Cleaning Dune Polymarket Trades
 The most common filter amongst existing literature is to ignore maker fills and only include full-order trades. 
 This has its origins from Paradigm's research [Polymarket Volume Is Being Double-Counted](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted), where Storm Slivkoff noted that two kinds of `OrderFilled` events are emitted by the Polymarket CTF and Neg Risk contracts. When a user makes a market order, the `OrderFilled` event is emitted for both individual taker-maker fills and to the the complete order that is fulfilled. The two events can be distinguished by checking the `taker` field, which is the CTF or Neg Risk contract address for a full order. 
 This filter, when added at a early stage of the data cleaning process, would remove maker-taker fills. These fills are extremely valuable, as they contain individual taker-maker fills that can be utilized to calculate the spread of a trade thats realized by the taker. The spread can be calulated as the difference between the min price and max price of the all the taker fills. A quick sanity check is performed on the spread to ensure that spread is always positive.
@@ -72,7 +89,7 @@ Since the `shares` required to redeem or mint YES/NO pairs are same, the split a
 Using this, `(1 - price)` as the maker asset price, we can now calculate the usd volume of a fill as `shares * (1-price)`. 
 We can sanity check this by aggregating the maker usd volume of all fills and comparing it to the volume of all full order fills, ensuring it matches.
 
-### Initial trade labelling
+### 2.4. Initial trade labelling
 With Polymarket Airdrop speculation in mind, there are two main types of trades, that can be filtered, where directionality is inconsequential and the trader is trading on the inefficiency for before the market reaches a resolution. These are:
 1. **Notional Farming** - Trades where users buy shares close to 0 price. This pumps up their notional volume in exchange for small USD volume. eg: buying 100000 YES shares at 0.0001 price for 100 USD. 
 2. **Yield Farming** - Traders where users buy shares close to 1 price. This captures the small difference between the market price and resolution price. eg: buying 100000 YES shares at 0.98 price for 98000 USD and booking 2000 USD profit upon redemption.
@@ -84,7 +101,7 @@ For our analysis, we will label a trade as :
 This labelling helps label around 50% of the trades in these price ranges.
 ![notional_and_yield_farming](imgs/notional_and_yield_farmers.png)
 
-## Signals 
+## 3. Signals 
 
 Inorder to label potential insider traders, we will use the following well-known signals and aggregate them to score each trade and eventually aggregate it per trader. Once again, we can use qualitative and quantitative signals to score each trade.
 We will go with well-known qualitative signals such as: 
@@ -117,11 +134,11 @@ And 4 quantitative signals:
 4. `user_spread_anomaly_score`
 
 
-#### Why `z-score` was not utilized ? 
+#### 3.1 Why `z-score` was not utilized ? 
 `z-score` was not utilized because it assumes a normal distribution of data. Both bet-size and spread size are extremely right skewed, so `z-score` is not a suitable measure for these variables.
 A more robust alternative such as MAD (Median Absolute Deviation) based z-score was explored. However the underlying Dune-SQL doesn't have a built in function and hence calculating MAD based z-score would require multiple passes over the data, increasing computing time.
 
-#### Why no `PNL` signal?
+#### 3.2 Why no `PNL` signal?
 PNL was another frequently used signal by other literatures. Existing work to rebuild PnL from onchain data (eg [blackhamm3r query](https://dune.com/queries/7440670)) create PNL from trade data by aggregating USD flow and PayoutRedemption values. A quick sanity check, is to compute per trader shares balances from these trades and check for negative values. Since Polymarket stores YES/NO positions separately in the form of ERC 1155, these positions can never be negative.
 
 Example:
@@ -179,9 +196,11 @@ When scoring users by aggregating their trades, we add an extra filter, where th
 However, summing up the scores alone wouldn't allow us zero in on the anomalous traders, as this score is now strongly correlated with the volume of trading by the user. 
 To combat this, we find the P99 percentile value for the user as the user's score. This way, anomalous traders with low volume would have their highest scored trade as the score, while highly active traders, would have their score scaled down by the volume of their low scoring trades. 
 
-## Future Scope:
+## 4. Insights
 
-#### 1. Improving Markets and Decision filters. 
+## 5. Future Scope:
+
+#### 5.1. Improving Markets and Decision filters. 
 
 One of the top 10 trades by our composite score is a **"Nuclear weapon detonation by June 30?"** trade that buys `NO` tokens for 20,000 USD. A trade that receives 176 points
 
@@ -203,14 +222,14 @@ This is a trade, that could be have been filtered, if we had better filters in p
 In this project, this was a more manual effort, where individual markets need to be inspected and decision needs to be made on a market-by-market basis. 
 Once can also argue that, an insider could buy a `NO` token on the same market, when they know for sure there is no likelyhood of Nuclear Launch.
 
-#### 2. Past trading context
+#### 5.2. Past trading context
 
 Currently the scoring is completely based on the current trade. Due the size of the dataset, injecting past context into the trade is too expensive at this stage. A simple flag to indicate whether the new trade is increasing the position of the user, and score to quantify the size this increase with respect to the user's previous trades and user's existing position is a strong measure for the user's conviction.
 The opposite of this, can be used to measure how much a user's conviction decreased.
 
 This would have been a very handy measurement in the Nuclear weapon market, where an insider believes there is no likelyhood of Nuclear Launch, gauging the conviction of the insider. Moreover, users switching from `YES` to `NO` on the same market in a short period is another strong signal that can be built using past trading context.
 
-#### 3. More robust statistics
+#### 5.3. More robust statistics
 
 We currently use measures of central tendency to measure outliers. However, these measures are mostly used to detect outliers than to score them.
 Moreover, we use quantile based capping to cap the outliers. Using better alternatives to scale outliers would be more appropriate. 
@@ -218,7 +237,7 @@ A solution, that was explored, but was eventually dropped, due to computational 
 
 Other than improving outlier score, a more robust framework for weighting different score is also important. Some late EDA on the scores showed that betsize anomalies were more frequently occuring than spread anomalies. Similarly user anomalies were more frequent than market anomalies. This could be an artifact of the standardized scoring utilized for scoring the anomalies. Care could be taken to tweak the scoring frameworks for a more evenly weighted scoring across different metrics.
 
-#### 4. Market clustering
+#### 5.4. Market clustering
 
 One of the most high profile cases in Polymarket insider trading, was **AlphaRacoon** the Google insider, who made close to 1 Million USD in profits betting on Google related markets. A majority of their profits came from taking positions on a cluster of markets that pointing to the same outcome. 
 
@@ -226,12 +245,12 @@ The question was **"#1 Searched Person on Google this year?**. AlphaRacoon place
 
 In our current dataset, each of these markets are treated separately. However, these 5 markets are part of the same question, and derived from same insider information.
 
-#### 5. Wallet clustering
+#### 5.5. Wallet clustering
 
 Along with trades scored individually, we also score user's independantly. However, it has been noted that **“Which company will ZachXBT expose?”** contained clusters of wallets, who had relatively smaller trade sizes, but made trades in similar timestamps, arising sybil suspicion. 
 Clustering can be performed on clustered markets to identify wallet clusters. Bet sizes, trade timestamps, onchain source of funds are key features than can be used to cluster wallets and detect communities. 
 
-#### 6. External data
+#### 5.6. External data
 
 Onchain data has been used successfully by alot of DeFi projects to counter sybils and other malicious actors. Data such as date of first transaction, source of funds, prior DeFi experience have been utilized to score risker wallet and clusters. These could have been valuable signals while flagging insider trades.
 
