@@ -196,7 +196,134 @@ When scoring users by aggregating their trades, we add an extra filter, where th
 However, summing up the scores alone wouldn't allow us zero in on the anomalous traders, as this score is now strongly correlated with the volume of trading by the user. 
 To combat this, we find the P99 percentile value for the user as the user's score. This way, anomalous traders with low volume would have their highest scored trade as the score, while highly active traders, would have their score scaled down by the volume of their low scoring trades. 
 
+We thus score 1.84 Million trades, and 54,478 unique wallets. 
+
 ## 4. Insights
+
+Let us now explore, how our framework labels insiders with a few case studies.  
+
+### 4.1. Known Insiders
+
+#### 4.1.1. AlphaRacoon - Google Insider
+
+AlphaRacoon was a recently convicted Insider, known for making 1M USD profits by betting on Google Gemini release date and most recently on **“#1 Searched Person on Google this year?"**, where they accurately predicted **d4vd** to be the winner, along with betting **NO** on the markets of other potential candidates.
+
+The wallet address is `0xee50a31c3f5a7c77824b12a941a54388a2827ed6`.
+In the wallet ranking, their wallet was ranked **652nd** with a P99 score of **101.55**.
+
+Ranking the top 5 trades:
+|Question                                                                                                                                                                     |Shares   |Price|USD betsize|Bet|Outcome|Score |
+|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|-----|-----------|---|-------|------|
+|[What day will Gemini 3.0 be released?](https://polymarket.com/event/what-day-will-gemini-3.0-be-released?)                                                                  |35,034.55|0.887|$ 31,080.78|No |no     |101.56|
+|[What day will Gemini 3.0 be released?](https://polymarket.com/event/what-day-will-gemini-3.0-be-released?)                                                                  |38,690.04|0.687|$ 26,574.70|Yes|yes    |96.11 |
+|[What day will Gemini 3.0 be released?](https://polymarket.com/event/what-day-will-gemini-3.0-be-released?)                                                                  |21,298.64|0.697|$ 14,851.00|Yes|yes    |52.88 |
+|[What day will Gemini 3.0 be released?](https://polymarket.com/event/what-day-will-gemini-3.0-be-released?)                                                                  |18,215.78|0.636|$ 11,581.18|Yes|yes    |40.96 |
+|[will-luigi-mangione-rank-in-googles-top-5-most-searched-people-of-2025](https://polymarket.com/event/will-luigi-mangione-rank-in-googles-top-5-most-searched-people-of-2025)|18,544.35|0.815|$ 15,122.12|No |no     |30.02 |
+
+#### 4.1.2. Venezuela president Maduro
+
+On January 3, 2026, US President Trump announced the capture of Venezuela's president Maduro in a military operation **"Operation Absolute Resolve"** the previous midnight. Since this was an executive move, no public info was available before President's address. However, a cluster of wallets were reported to have made bets on markets on when the president of Venezuela was to be removed from tenure, a few hours before the President's address.
+
+* `0x31a56e9E690c621eD21De08Cb559e9524Cdb8eD9`
+* `0xa72DB1749e9AC2379D49A3c12708325ED17FeBd4`
+* `0x6baf05d193692bb208d616709e27442c910a94c5`
+* `0x168b100d7a6620a2f49a455344c2c006eaf1714b`
+
+##### `0x31a56e9E690c621eD21De08Cb559e9524Cdb8eD9` 
+
+This wallet was owned by active-duty Army Special Forces Sergeant Gannon Ken Van Dyke, who was arrested in violation of Commodity Exchange Act. 
+The wallet's is ranked **2612** with a P99 score of **65.50**.
+
+Top 5 trades by score of `0x31a56e9E690c621eD21De08Cb559e9524Cdb8eD9`:
+|Question                                                                                                                                                         |Shares   |Price|USD betsize|Bet|Outcome|Score|
+|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|-----|-----------|---|-------|-----|
+|[maduro-out-by-january-31-2026-318](https://polymarket.com/event/maduro-out-by-january-31-2026-318)                                                              |88,186.77|0.082|$ 7,215.00 |Yes|yes    |64.50|
+|[maduro-out-by-january-31-2026-318](https://polymarket.com/event/maduro-out-by-january-31-2026-318)                                                              |87,500.00|0.080|$ 7,000.00 |Yes|yes    |64.01|
+|[maduro-out-by-january-31-2026-318](https://polymarket.com/event/maduro-out-by-january-31-2026-318)                                                              |82,420.83|0.073|$ 6,000.00 |Yes|yes    |61.86|
+|[maduro-out-by-january-31-2026-318](https://polymarket.com/event/maduro-out-by-january-31-2026-318)                                                              |90,347.29|0.066|$ 6,000.00 |Yes|yes    |61.86|
+|[trump-invokes-war-powers-against-venezuela-by-january-31-134-583](https://polymarket.com/event/trump-invokes-war-powers-against-venezuela-by-january-31-134-583)|2,533.13 |0.039|$ 100.00   |Yes|yes    |50.97|
+
+##### `0xa72DB1749e9AC2379D49A3c12708325ED17FeBd4`
+
+This wallet is ranked **1243** with a P99 score of **86.39**.
+
+This wallet only has a single trade: 
+|Question                                                                                           |Shares   |Price|USD betsize|Bet|Outcome|Score|
+|---------------------------------------------------------------------------------------------------|---------|-----|-----------|---|-------|-----|
+|[maduro-out-by-january-31-2026-318](https://polymarket.com/event/maduro-out-by-january-31-2026-318)|80,764.94|0.072|$ 5,782.66 |Yes|yes    |86.40|
+
+##### `0x6baf05d193692bb208d616709e27442c910a94c5`
+
+This wallet is ranked **102** with a P99 score of **126.19**.
+
+This wallet has only 3 trades:
+|Question                                                                                                                                 |Shares   |Price|USD betsize|Bet|Outcome|Score |
+|-----------------------------------------------------------------------------------------------------------------------------------------|---------|-----|-----------|---|-------|------|
+|[maduro-out-by-february-28-2026](https://polymarket.com/event/maduro-out-by-february-28-2026)                                            |82,276.39|0.183|$ 15,089.94|Yes|yes    |126.19|
+|[maduro-out-by-january-31-2026-318](https://polymarket.com/event/maduro-out-by-january-31-2026-318)                                      |88,433.40|0.113|$ 10,000.00|Yes|yes    |97.69 |
+|[khamenei-out-as-supreme-leader-of-iran-by-january-31](https://polymarket.com/event/khamenei-out-as-supreme-leader-of-iran-by-january-31)|20,000.00|0.200|$ 4,000.00 |Yes|no     |0     |
+
+##### `0x168b100d7a6620a2f49a455344c2c006eaf1714b`
+
+The wallet is ranked **1273** with a P99 score of **85.13**.
+
+This wallet has only 2 trades:
+|Question                                                                                           |Shares   |Price|USD betsize|Bet|Outcome|Score|
+|---------------------------------------------------------------------------------------------------|---------|-----|-----------|---|-------|-----|
+|[maduro-out-by-january-31-2026-318](https://polymarket.com/event/maduro-out-by-january-31-2026-318)|44,295.28|0.117|$ 5,187.86 |Yes|yes    |85.12|
+|[maduro-out-by-january-31-2026-318](https://polymarket.com/event/maduro-out-by-january-31-2026-318)|37,774.85|0.125|$ 4,709.81 |Yes|yes    |84.10|
+
+#### 4.1.3. ZachXBT Investigation on Axiom:
+
+On February 23, 2026, ZachXBT a renowned onchain investigator posted a tweet stating a major insider trading operation would be exposed on February 26, 2026. The Polymarket Market betting on which company would be exposed was deployed and gained traction. Initially, Meteora a popular DEX on Solana was favourite to be the target of the investigation, with 43% implied by the market, with Axiom sitting second at 13%. 
+On 26th, ZachXBT announced Axiom employee, Broox Bauer led a insider trading operation, leveraging on internal tools to access private trading data. The following traders were noted to have entered markets at low price and walked away with combined 1.4 million USD in profits.
+
+|Trader                                    |USD Volume  |P99 Percentile|Rank|
+|------------------------------------------|------------|--------------|----|
+|0xe56526b27b96f009b31ddb46558a134047bfce48|$ 100,500.00|125.00        |142 |
+|0x054ec2f0ccfdae941886a3ed306635068c716639|$ 692,243.85|102.15        |592 |
+|0x581f34349babaf03b2d3c8f5f60cf44ffbe19a3a|$ 4,978.05  |86.93         |1230|
+|0x98a96619e482700e83e8486e4f3727dba17f5381|$ 19,117.34 |86.08         |1253|
+|0x5e524f43357198fa815e6766f02fe686b444b064|$ 16,247.87 |76.45         |1745|
+|0xeeff2d748ad5efcfbbb3c8858f608d6b6321a398|$ 10,383.47 |57.28         |3261|
+|0x1d9af60c679cd0b577c3c4ccb4b1a4be4174426d|$ 15,294.80 |57.10         |3283|
+|0xff55beaf369387d7748a31213699a51f1ca8b877|$ 10,000.00 |55.11         |3572|
+|0x6d6affce1ed04a0e9611484daf1cef5cbcf3fb40|$ 4,947.75  |36.56         |9211|
+|0xd9eab53eaba81333045da5bd84ce6c833f721e89|$ 3,892.82  |36.02         |9528|
+
+The top two wallets specifically:
+
+Top 5 trades of `0xe56526b27b96f009b31ddb46558a134047bfce48`:
+|Question                                                                                                                                                   |Shares   |Price|USD betsize|Bet|Outcome|Score |
+|-----------------------------------------------------------------------------------------------------------------------------------------------------------|---------|-----|-----------|---|-------|------|
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|3,371.06 |0.297|$ 1,000.00 |Yes|yes    |76.60 |
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|34,447.28|0.290|$ 10,000.00|Yes|yes    |99.98 |
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|13,063.86|0.765|$ 10,000.00|No |no     |76.63 |
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|18,763.31|0.799|$ 15,000.00|No |no     |99.94 |
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|31,252.06|0.800|$ 25,000.00|No |no     |125.00|
+
+Top 5 trades of `0x054ec2f0ccfdae941886a3ed306635068c716639`:
+|Question                                                                                                                                                   |Shares   |Price|USD betsize|Bet|Outcome|Score |
+|-----------------------------------------------------------------------------------------------------------------------------------------------------------|---------|-----|-----------|---|-------|------|
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|34,720.90|0.288|$ 10,000.00|Yes|yes    |102.15|
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|33,453.55|0.299|$ 10,000.00|Yes|yes    |99.98 |
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|6,806.95 |0.294|$ 2,000.00 |Yes|yes    |82.06 |
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|10,066.02|0.298|$ 3,000.00 |Yes|yes    |81.80 |
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|17,664.84|0.283|$ 5,000.00 |Yes|yes    |89.26 |
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|16,672.73|0.300|$ 5,000.00 |Yes|yes    |86.99 |
+
+A wallet that made amost 600% ROI - `0x1d9af60c679cd0b577c3c4ccb4b1a4be4174426d` 
+|Question                                                                                                                                                   |Shares   |Price|USD betsize|Bet|Outcome|Score|
+|-----------------------------------------------------------------------------------------------------------------------------------------------------------|---------|-----|-----------|---|-------|-----|
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|19,853.02|0.101|$ 2,000.00 |Yes|no     |0    |
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|21,387.24|0.146|$ 3,118.94 |Yes|yes    |57.10|
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|3,062.75 |0.132|$ 404.89   |Yes|yes    |25.05|
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|62,644.10|0.080|$ 5,000.00 |Yes|yes    |37.92|
+|[Which crypto company will ZachXBT expose for insider trading?](https://polymarket.com/event/which-crypto-company-will-zachxbt-expose-for-insider-trading?)|4,642.27 |0.118|$ 550.00   |Yes|yes    |26.22|
+
+## 4.2. Potential Insiders
+
+These are likely insiders that have not been detected publicly.
 
 ## 5. Future Scope:
 
@@ -257,3 +384,10 @@ Onchain data has been used successfully by alot of DeFi projects to counter sybi
 A lot of markets were ignored due to their reliance on external API data for resolution. These also include markets, that can contain insider trading without explicitly depending on resolution. 
 
 An example market is the Tweets market. Tweets markets are Neg-risk markets, where multiple ranges are traded. This leads to cases where, for example **Elon Musk # tweets February 10 - February 17, 2026? - 200-219** market would only resolve at the end of February 17, 2026. But the 219 count would have reached sometime around February 13th, 2026.
+
+## References:
+
+* [Polymarket Volume Is Being Double-Counted - Storm Slivkoff - Paradigm](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted)
+* [U.S. Soldier Charged With Using Classified Information To Profit From Prediction Market Bets - Office of Public Affairs](https://www.justice.gov/opa/pr/us-soldier-charged-using-classified-information-profit-prediction-market-bets)
+* [Polymarket bettors put $3 million on which crypto firm ZachXBT will expose next - Coindesk](https://www.coindesk.com/markets/2026/02/24/polymarket-bettors-put-usd3-million-on-which-crypto-firm-zachxbt-will-expose-next)
+* [Insiders cashed in before Axiom reveal, Wallets bagged $1M on Polymarket](https://www.cryptopolitan.com/insiders-cashed-in-before-axiom-reveal-wallets-bagged-1m-on-polymarket)
