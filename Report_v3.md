@@ -239,3 +239,44 @@ On Feb 23rd, 2026, ZachXBT announced that there is an ongoing investigation with
 | `0x5e524f43...` | 16,247.87 | 76.45 | 1,745 |
 
 The top two wallets rank with top 600, and full cluster is concentrated in the top 3000.
+
+## 9. Error Analysis
+
+### 9.1. False Positives
+
+One of the highest-scoring trades in the dataset is a **“Nuclear weapon detonation by June 30?”** `NO` purchase worth 20,000 USD, scoring 176 P99 points. This is very likely not an insider trade, since this is a low information, ration trade. 
+
+This highlights a key gap in this framework: the model doesn't account for rationality. A `NO` trade on a market with existential risk, carries a different thinking pattern than a `NO` in a corporate decision market. 
+
+Extra effort into filtering specific markets, would reduce these errors.
+
+### 9.2. False Negatives
+
+In the AlphaRacoon case, one of the most high profile trades was `YES` buy on **"Will d4vd be the #1 searched person on Google this year?"**. This was primarily because this was a contrarian trade with implied probability of around 6%. However, this trade is scored relatively low, with the contrarian trade component performing bulk of the score lifting. 
+
+This was a position that was augumented with larger positions betting `NO` on the markets of other potential candidates. Individually these trades may fail below scoring thresholds in each individual market. However, if aggregated within question, correcting betting on different versions of the same event is a strong signal of insider information.
+
+## 10. Limitations
+
+### 10.1. Onchain-only
+The framework only accounts for onchain data, with no access to offchain event feeds, news timing, social media activity. This means trades made in response to offchain signals cannot be distinguised from trades made on non-public knowledge. This is extremely evident in Twitter and Sports markets, where offchain signals can confirm resolution hours and even days before the actual onchain resolution.
+
+### 10.2. Incomplete PnL Reconstruction
+**PnL** and **ROI** are strong signals to filter potential insider trades. This is also very frequently used in existing literature. 
+
+I have deliberately excluded **PnL** and **ROI** from this framework. This is because:
+1. Existing literature uses aggregation of  Trading PnL from `OrderFilled` events (backbone of `market_trades` dataset) and combining it with `PayoutRedemption` events. This however doesn't account for wallets that obtain exposure to an outcome by minting `YES`/`NO` pairs and selling the opposite side into market. A simple negative shares sanity check flags this issue. Moreover, positions created by such minting, would show up as losing positions on aggregations, as its creating negative balances.
+2. The correct methodology for PnL reconstruction is to unwrap ERC-1155 `BatchTransfer` events and ERC-1155 `SingleTransfer` events and computing the share balances from the asset movements. This needs to be then combined with Trading PnL to estimate PnL and ROI. However, this combination is significantly more expensive computationally on Dune. 
+
+### 10.3. Scoring Parameters Sensitivity
+
+All scoring parameters - contrarian cutoffs, P90 anomaly thresholds, P99 caps, qualitative weights - are chosen heuristically. The rankings are hence sensitive to these parameters. A more robust approach would be to:
+1. Learn thresholds from labelled examples using a supervised learning approach
+2. Used **Median Absolute Deviation (MAD) based z-score** to score outliers thoughtfully. 
+
+The current implementation avoids MAD based z-score, as DuneSQL lacks a native MAD function, and a manual implementation requires multiple data passes, hence is computationally expensive.
+
+### 10.4 Missing Wallet Context
+
+While the analysis is strongly constrained to Onchain data, onchain wallet metadata such as: first transaction timestamp, source of funds, DeFi usage, cross-chain activity could add meaningful filters and signals. 
+An example is, the fresh wallet detection, which only uses the first Polymarket trade. A wallets that has its first onchain trade 2 years ago is a different risk profile from a wallet that has no onchain activity.
