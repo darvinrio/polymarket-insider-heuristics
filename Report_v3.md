@@ -165,7 +165,48 @@ For a trade feature \(x\), from a distribution of \(\{x_1, \ldots, x_n\}\), the 
 This score measures how many multiples of P90 does the trade exceeds the P90 threshold.
 
 #### H3: Market Bet-Size Anomaly
-TODO
+**Intuition**: Insiders with non-public information might have larger bet size than the typical trader. A trade that is larger relative to the rest of the makert might indicate insider trading rather than speculation. 
+**Definition**: We try to ask **"Is this trade large for this market?"**.
+The anomaly score compares a trade's USD bet size to all ther other bet sizes in the market. The scores is:
+
+\[\text{score}_{\text{market-bet}} = \frac{\text{betsize}}{P_{90}(\text{betsizes in market})} - 1\]
+
+The scores are capped at **100 points** - which is the P99 percentile of the bet size distribution.
+**False positives**: Larger portfolios might place larger bets, Yield farming trades outside of the current yield farming definition also go with larger than usual bet sizes.
+
+#### H4: User Bet-Size Anomaly
+**Intuition**: A trader who usually makes a smaller bet size, but suddenly places an unusually large betsize, might do so in response to increased conviction based on potential non-public information. The aim is to use the user's own bet size history to catch behaviour change.
+
+**Definition**: We try to ask **"Is this trade large for this user?"**. The anomaly score compares a trade's USD bet size to the user's own bet size history. The score is:
+
+\[\text{score}_{\text{user-bet}} = \frac{\text{betsize}}{P_{90}(\text{betsizes by wallet})} - 1\]
+
+The scores are capped at **50 points** - which is the P99.9 percentile of the bet size distribution.
+
+Since this fires independently from H3, a whales large trade maynot trigger H3, but not H4, while a smaller wallets large trade will trigger H4 but not H3. 
+**False positives**: Wallets who previously were testing waters, and are now confident to commit larger bets, wallets after new public information before resolution tend to commint bigger sizes.
+
+#### H5: Market Spread Anomaly
+**Intuition**: The price range of individual fills that fill a single order is an indicator or urgency. A insider with time sensitive information might be willing to accept more spread than a normal user in the same market.
+
+**Definition**: We try to ask **"Is this trade's execution cost is higher than expected, when compared to other trades in the same market?"**. The anomaly score compares a trade's market spread to the market's own spread. A key difference is that since the distribution is extremely zero-heavy, we only compare against non-zero spread in the same market. The score is:
+
+\[\text{score}_{\text{market-spread}} = \frac{\text{spread}}{P_{90}(\text{non-zero spreads in market})} - 1\]
+
+Scores are capped at P99.9 value of **100 points** to avoid extreme outliers.
+
+Only non-zero spreads above 1e-6 are included in the distribution, so that single-fill orders with zero spread and floating point precision errors do not skew the distribution.
+**False positives**: Legitimate orders that are executed in thin orderbooks, algorithmic traders sweeping liquidity in reponse to a new public information before resolution, all get flagged.
+
+#### H6: User Spread Anomaly
+**Intuition**: A trade who usually executes cleanly with single fills or tight multifill spread, but suddenly accepts a wider spread, might have priortized execution confirmation over execution quality. This could indicate a change in user's behaviour in terms of urgency. 
+**Definition**: We try to ask **"Is this trade's execution cost is for this user?"**. The anomaly score compares a trade's market spread to the user's own historical spread. Similar to H5, since the distribution is extremely zero-heavy, we only compare against non-zero spread in the same market. The score is:
+
+\[\text{score}_{\text{user-spread}} = \frac{\text{spread}}{P_{90}(\text{non-zero spreads by wallet})} - 1\]
+
+Scores are capped at P99.9 value of **50 points** to avoid extreme outliers.
+**False positives**: 
+Wallets with very few trades, but spread generating trades have unstable P90s. Users who happen to trade during a low liquidity high volatility period when market makers have pulled liquidity in response to volatile new public information, have to accept spreads. 
 
 ## 7. Composite Scoring
 
@@ -207,12 +248,12 @@ In November to December 2025, a wallet made 1 Million USD in profits, by betting
 
 **Framework Result**:
 
-The wallet ranks 652nd with a P99 percentile score of 101.55. Its highest scoring trade is a large NO bet on **“What day will Gemini 3.0 be released?”**. 
+The wallet ranks 652nd with a P99 percentile score of 101.55. Its highest scoring trade is a large NO bet on **"What day will Gemini 3.0 be released?"**. 
 A key point to note is that, the **"#1 Searched Person on Google this year?"** are scored lower. The reason for this will be discussed later. 
 
 ### 8.2. US Military Insider - Venezuela / Maduro
 
-On Jan 3rd, 2026, US President Trump announced that Venezuela's President was captured in a sting operation, code named **“Operation Absolute Resolve”**. This being an executive decision, meant that non-public information before the Presidential Address was non-existant. A cluster of wallets were detected to have take large positions in the market, before such information was made public. 
+On Jan 3rd, 2026, US President Trump announced that Venezuela's President was captured in a sting operation, code named **"Operation Absolute Resolve"**. This being an executive decision, meant that non-public information before the Presidential Address was non-existant. A cluster of wallets were detected to have take large positions in the market, before such information was made public. 
 An active-duty Army Special Forces Sergeant Gannon Ken Van Dyke, was arrested and charged with 3 counts of violating the Commodity Exchange Act.
 
 **Framework Results**:
@@ -226,7 +267,7 @@ Almost all wallets rank within the top 2500. The Van Dyke wallet ranks somewhat 
 
 ### 8.3. ZachXBT Axiom Investigation - Axiom or ZachXBT insider
 
-On Feb 23rd, 2026, ZachXBT announced that there is an ongoing investigation with respect to a specific insider trading operation in a DEX, and that the details would drop on Feb 26th, 2026. A market **“Which crypto company will ZachXBT expose?”** was created to speculate on which DEX was being investigated. The market had Meteora priced in at 43% implied odds and Axiom at 13% implied odds. A cluster of wallets entered Axiom `YES` positions at low prices, before the announcement from ZachXBT resolved the market. 
+On Feb 23rd, 2026, ZachXBT announced that there is an ongoing investigation with respect to a specific insider trading operation in a DEX, and that the details would drop on Feb 26th, 2026. A market **"Which crypto company will ZachXBT expose?"** was created to speculate on which DEX was being investigated. The market had Meteora priced in at 43% implied odds and Axiom at 13% implied odds. A cluster of wallets entered Axiom `YES` positions at low prices, before the announcement from ZachXBT resolved the market. 
 
 **Framework Results (Top 5 Wallets)**:
 
@@ -244,7 +285,7 @@ The top two wallets rank with top 600, and full cluster is concentrated in the t
 
 ### 9.1. False Positives
 
-One of the highest-scoring trades in the dataset is a **“Nuclear weapon detonation by June 30?”** `NO` purchase worth 20,000 USD, scoring 176 P99 points. This is very likely not an insider trade, since this is a low information, ration trade. 
+One of the highest-scoring trades in the dataset is a **"Nuclear weapon detonation by June 30?"** `NO` purchase worth 20,000 USD, scoring 176 P99 points. This is very likely not an insider trade, since this is a low information, ration trade. 
 
 This highlights a key gap in this framework: the model doesn't account for rationality. A `NO` trade on a market with existential risk, carries a different thinking pattern than a `NO` in a corporate decision market. 
 
@@ -276,7 +317,7 @@ All scoring parameters - contrarian cutoffs, P90 anomaly thresholds, P99 caps, q
 
 The current implementation avoids MAD based z-score, as DuneSQL lacks a native MAD function, and a manual implementation requires multiple data passes, hence is computationally expensive.
 
-### 10.4 Missing Wallet Context
+### 10.4 Historical Wallet Context
 
 While the analysis is strongly constrained to Onchain data, onchain wallet metadata such as: first transaction timestamp, source of funds, DeFi usage, cross-chain activity could add meaningful filters and signals. 
 An example is, the fresh wallet detection, which only uses the first Polymarket trade. A wallets that has its first onchain trade 2 years ago is a different risk profile from a wallet that has no onchain activity.
