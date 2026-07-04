@@ -317,7 +317,39 @@ All scoring parameters - contrarian cutoffs, P90 anomaly thresholds, P99 caps, q
 
 The current implementation avoids MAD based z-score, as DuneSQL lacks a native MAD function, and a manual implementation requires multiple data passes, hence is computationally expensive.
 
-### 10.4 Historical Wallet Context
+### 10.4. Historical Wallet Context
 
 While the analysis is strongly constrained to Onchain data, onchain wallet metadata such as: first transaction timestamp, source of funds, DeFi usage, cross-chain activity could add meaningful filters and signals. 
 An example is, the fresh wallet detection, which only uses the first Polymarket trade. A wallets that has its first onchain trade 2 years ago is a different risk profile from a wallet that has no onchain activity.
+
+## 11. Future Work
+
+### 11.1. Tracking Positions of Traders:
+
+Current framework scores trades individually, with no regard for past positioning of the trader. Current position size can be used to quantify the conviction of the trader, when used in conjuction with the directionality and size of the trade. A position increase in a previously smaller size or a complete flip in direction could indicate changes in trader's conviction in response to changing information.
+
+An example is AlphaRacoon, who took a small `YES` position in **“#1 Searched Person on Google This Year - Kendrick Lamar”**, which was then sold closer to the resolution. Coinincidentally, **Kendrick Lamar** finished second in the list, likely suggesting that AlphaRacoon could have known that **Kendrick Lamar** could potentially displace **d4vd**, should there be last minute shifts in the rankings.
+
+### 11.2. Cross-Market Clustering
+Multiple related markets resolve on the same underlying event. Grouping these trades into a single market cluster while scoring the trades and positions would improve detection of composite trading behavior. 
+
+AlphaRacoon's `YES` position in **d4vd** were augumented by `NO` positions in other major candidates such as **Trump**, **Pope Leo XIV**, **Bianca Censori** and **Zohran Mamdani**. As a result, the position size of AlphaRacoon was effectively larger than what a single market trade would score. 
+
+### 11.3. Wallet Clustering
+Axiom investigation market revealed a cluster of about 10 wallets, that made smaller positions around similar timeframes. Utilizing extra info such as trading timestamps, source of funds and entry prices could be used to detect groups of wallets, that are likely controlled by the same entity.
+
+### 11.4. More robust Outlier scoring
+
+This was briefly experimented with, before being abandoned due to computational limitations. 
+
+Quantile capping can be replaced with a more robust scoring method, where lower thresholds are identified and above which we perform quantile or logarithmic scaling to retain extreme outlier information while still been the scores bounded. 
+
+Moreover, most outlier threshold is a single data point for a market or for a user. The ideal way is to define outlier threshold for each trade individually based on only the trades that occured before the current trade. This is because only a potential trade is detected, there are existing software stacks to copy trade and poluting the data. Similarly, once information becomes public, legitimate users also tend to make same decisions in terms of size, execution costs and timing, as that of a insider wallet.
+
+## 12. References:
+
+* [Polymarket Volume Is Being Double-Counted - Storm Slivkoff - Paradigm](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted)
+* [U.S. Soldier Charged With Using Classified Information To Profit From Prediction Market Bets - Office of Public Affairs](https://www.justice.gov/opa/pr/us-soldier-charged-using-classified-information-profit-prediction-market-bets)
+* [Google Employee Charged With Insider Trading](https://www.justice.gov/usao-sdny/pr/google-employee-charged-insider-trading)
+* [Polymarket bettors put $3 million on which crypto firm ZachXBT will expose next - Coindesk](https://www.coindesk.com/markets/2026/02/24/polymarket-bettors-put-usd3-million-on-which-crypto-firm-zachxbt-will-expose-next)
+* [Insiders cashed in before Axiom reveal, Wallets bagged $1M on Polymarket](https://www.cryptopolitan.com/insiders-cashed-in-before-axiom-reveal-wallets-bagged-1m-on-polymarket)
