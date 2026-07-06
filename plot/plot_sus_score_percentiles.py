@@ -1,9 +1,9 @@
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import polars as pl
+from plotly.subplots import make_subplots
 
 # ── config ──────────────────────────────────────────────────────────
-CSV_PATH = "plot/polymarket_sus_score_precentiles.csv"
+CSV_PATH = "data/polymarket_sus_score_precentiles.csv"
 OUTPUT_PATH = "plot/sus_score_percentiles.html"
 
 BOX_PERCENTILES = {"p10", "p25", "p50", "p75", "p90"}
@@ -49,9 +49,7 @@ for row in data.to_dicts():
 for row in data.to_dicts():
     metric = row["metric"]
     values = [row[p] for p in TAIL_PERCENTILES]
-    text_labels = [
-        f"{label}: {val:.2f}" for label, val in zip(TAIL_LABELS, values)
-    ]
+    text_labels = [f"{label}: {val:.2f}" for label, val in zip(TAIL_LABELS, values)]
 
     fig.add_trace(
         go.Scatter(

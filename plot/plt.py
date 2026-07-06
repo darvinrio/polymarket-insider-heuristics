@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-df = pd.read_csv("plot/polymarket_sus_score_precentiles.csv", index_col=0)
+df = pd.read_csv("data/polymarket_sus_score_precentiles.csv", index_col=0)
 metrics = df.index.tolist()
 short_names = {
     "market_betsize_anomaly_score": "Mkt-Bet",
