@@ -17,3 +17,4 @@ wheels/
 
 # CSV files
 *.csv
+!polymarket_sus_score_precentiles.csv
