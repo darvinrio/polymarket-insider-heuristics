@@ -6,6 +6,8 @@ short_list_markets as (
     select distinct
         -- *,
         token_id,
+        question,
+        event_market_name,
         from_hex(condition_id) as condition_id,
         tags,
         from_iso8601_timestamp(market_start_time) as market_start_time,
@@ -29,6 +31,30 @@ short_list_markets as (
         )) = 0
         -- ensure that outcome of token matches final outcome
         -- and lower(token_outcome) = lower(outcome)
+        and token_id in (
+            uint256'80172139326701765108593354605737918733332031006149436614549251803199576580256',
+            uint256'7195773232487043266978476530577454342538487460595382033047573657844322304414',
+            uint256'74552596225669253620878472148189203079227772907726247409482369584444874921155',
+            uint256'5623316591615451597601053453950462135219854616785584711264969061701991288999',
+            uint256'44725091126499333899568177448038860509765437354247408321452950536416452787104',
+            uint256'113384067667705168345314119917208860058593041651598365026330742747798385341969',
+            uint256'26837980823508254470249280319475503386893494717052596977838170518162147923721',
+
+
+            --
+            uint256'104759514460241892139371002205428862441630463557129279399757469741241677798219',
+            uint256'50934272987968315458423599988438377587631614891292186397039214412260765171905',
+            uint256'101510735805402334165766528202764835790000213929369598932788615758835645874547',
+            uint256'66232512034857544876752159572610185845353012140655737948053748904523938013701',
+            uint256'17305557643465067329253011405539831465600699322982179786670382602003786940905',
+            uint256'105822451351258779373414887922960431462248423534899454345965193715068300731564',
+            uint256'68284740559688870130006994131102415275712442208886316027960220135102135302927',
+
+
+            uint256'35123492166352861493939502586229936226942118018972695076283528793811859916330',
+
+            0
+        )
 ),
 trades_level_1 as (
     select
@@ -171,9 +197,13 @@ batch_transfers as (
         "from" as sender,
         "to" as recipient,
         u.token_id,
-        u.shares_raw/1e6 as shares
+        u.shares_raw/1e6 as shares,
+        s.question,
+        s.event_market_name
     from polymarket_polygon.ctf_evt_transferbatch b
         cross join unnest(b.ids, b."values") as u(token_id, shares_raw)
+        left join short_list_markets s
+            on u.token_id = s.token_id
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
@@ -205,7 +235,9 @@ splits as (
         b.recipient as trader,
         b.token_id,
         b.shares,
-        'split' as trade_type
+        'split' as trade_type,
+        b.question,
+        b.event_market_name
     from polymarket_polygon.ctf_evt_positionsplit p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -237,7 +269,9 @@ merges as (
         b.sender as trader,
         b.token_id,
         -b.shares as shares,
-        'merge' as trade_type
+        'merge' as trade_type,
+        b.question,
+        b.event_market_name
     from polymarket_polygon.ctf_evt_positionsmerge p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -266,7 +300,9 @@ converts as (
         b.recipient as trader,
         b.token_id,
         b.shares as shares,
-        'convert' as trade_type
+        'convert' as trade_type,
+        b.question,
+        b.event_market_name
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -348,12 +384,12 @@ merges_splits_converts as (
         null as maker_token_outcome,
         null as condition_id,
         null as neg_risk,
-        null as question,
+        question,
         null as final_outcome,
         null as market_start_time,
         null as market_end_time,
         null as orders_end_time,
-        null as event_market_name,
+        event_market_name,
         shares/2 as usd,
         -shares as shares_delta,
         0 as shares_bought,
@@ -373,12 +409,12 @@ merges_splits_converts as (
         null as maker_token_outcome,
         null as condition_id,
         null as neg_risk,
-        null as question,
+        question,
         null as final_outcome,
         null as market_start_time,
         null as market_end_time,
         null as orders_end_time,
-        null as event_market_name,
+        event_market_name,
         shares/2 as usd,
         shares as shares_delta,
         shares as shares_bought,
@@ -398,12 +434,12 @@ merges_splits_converts as (
         null as maker_token_outcome,
         null as condition_id,
         null as neg_risk,
-        null as question,
+        question,
         null as final_outcome,
         null as market_start_time,
         null as market_end_time,
         null as orders_end_time,
-        null as event_market_name,
+        event_market_name,
         0 as usd,
         shares as shares_delta,
         shares as shares_bought,
@@ -506,16 +542,48 @@ resolutions as (
             -- and t.condition_id = c.condition_id
 )
 
-select * from resolutions
+select *,
+    if(
+        lower(final_outcome) = lower(maker_token_outcome),
+        total_shares,
+        0
+    ) as resolution_profit,
+    if(
+        lower(final_outcome) = lower(maker_token_outcome),
+        total_shares,
+        0
+    ) - usd_invested + usd_realized as final_profit
+from resolutions
 -- where maker = 0xee50a31c3f5a7c77824b12a941a54388a2827ed6
 where true
 -- -- total_shares < 0
 -- -- and neg_risk = 'False'
 -- and maker = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
-order by total_shares desc
-limit 10
+-- order by total_shares desc
+-- limit 10
 
 -- select * from audit_txs
+-- where trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
+-- and token_id in (
+--     uint256'80172139326701765108593354605737918733332031006149436614549251803199576580256',
+--     uint256'7195773232487043266978476530577454342538487460595382033047573657844322304414',
+--     uint256'74552596225669253620878472148189203079227772907726247409482369584444874921155',
+--     uint256'5623316591615451597601053453950462135219854616785584711264969061701991288999',
+--     uint256'44725091126499333899568177448038860509765437354247408321452950536416452787104',
+--     uint256'113384067667705168345314119917208860058593041651598365026330742747798385341969',
+--     uint256'26837980823508254470249280319475503386893494717052596977838170518162147923721',
+
+--     --
+--     uint256'104759514460241892139371002205428862441630463557129279399757469741241677798219',
+--     uint256'50934272987968315458423599988438377587631614891292186397039214412260765171905',
+--     uint256'101510735805402334165766528202764835790000213929369598932788615758835645874547',
+--     uint256'66232512034857544876752159572610185845353012140655737948053748904523938013701',
+--     uint256'17305557643465067329253011405539831465600699322982179786670382602003786940905',
+--     uint256'105822451351258779373414887922960431462248423534899454345965193715068300731564',
+--     uint256'68284740559688870130006994131102415275712442208886316027960220135102135302927',
+
+--     0
+-- )
 -- where token_id = uint256'13381326949921541597165699364493406669808285479989037075263368166849756643315'
 
 -- where trader = 0x793e67beddb49b1c4ea8819c74644056a5d8baef
