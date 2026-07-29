@@ -216,6 +216,61 @@ batch_transfers as (
         "to" in (select maker from short_list_wallets)
     )
 ),
+stray_batch_transfers as (
+    select
+        evt_block_time,
+        evt_block_number,
+        evt_index,
+        evt_tx_hash,
+        operator,
+        sender,
+        recipient,
+        token_id,
+        shares,
+
+        question,
+        event_market_name,
+        final_outcome,
+        token_outcome,
+        condition_id,
+        neg_risk,
+        market_start_time,
+        market_end_time,
+        orders_end_time
+    from batch_transfers b
+    where true
+    and operator not in (
+        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
+        0xc5d563a36ae78145c45a50134d48a1215220f80a, -- negrisk v1
+        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
+        0x0000000000000000000000000000000000000000
+    )
+    and sender not in (
+        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
+        0xc5d563a36ae78145c45a50134d48a1215220f80a,  -- negrisk v1
+        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
+        0x0000000000000000000000000000000000000000
+    )
+    and recipient not in (
+        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
+        0xc5d563a36ae78145c45a50134d48a1215220f80a, -- negrisk v1
+        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
+        0x0000000000000000000000000000000000000000
+    )
+    -- filter out
+    and token_id in (select token_id from short_list_markets)
+    -- and b.ids[1] in (select token_id from short_list_markets)
+    and evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- trader filter
+    and (
+        sender in (select maker from short_list_wallets)
+        or
+        recipient in (select maker from short_list_wallets)
+    )
+),
 single_transfers as (
     select
         evt_block_time,
@@ -275,6 +330,11 @@ single_transfers as (
         or
         "to" in (select maker from short_list_wallets)
     )
+),
+all_single_transfers as (
+    select * from single_transfers
+    union all
+    select * from stray_batch_transfers
 ),
 splits as (
     select
@@ -598,7 +658,7 @@ single_transfer_deltas as (
         0 as usd_invested,
         0 as usd_realized,
         'transfer_out' as trade_type
-    from single_transfers
+    from all_single_transfers
     union all
 
     select
@@ -624,7 +684,7 @@ single_transfer_deltas as (
         0 as usd_invested,
         0 as usd_realized,
         'transfer_in' as trade_type
-    from single_transfers
+    from all_single_transfers
 ),
 audit_txs as (
     select *
@@ -694,6 +754,7 @@ select *,
 from audit_aggr
 where true
 and total_shares < 0
+and trader in (select maker from short_list_wallets)
 -- -- and neg_risk = 'False'
 -- and trader = 0xee50a31c3f5a7c77824b12a941a54388a2827ed6
 -- and trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
