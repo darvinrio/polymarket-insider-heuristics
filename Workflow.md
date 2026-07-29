@@ -53,3 +53,5 @@ sanity checks:
 * position convert - https://polygonscan.com/tx/0x5ff247bce26e8c3f66325a64dc25bc0e9bcaeac10a92213f5a919a9105633c56#eventlog
 * no order position split - https://polygonscan.com/tx/0xa5e79271aceadbcd24d11590c6853de0b54a06d3d005d8f3ea010da02d3411c4#eventlog
 * single transfers - https://polygonscan.com/tx/0x8ef8f40527122be70189cce3767c5985484d2e320d8b40654da706db46e2f446#eventlog
+* standalone batch transfer - https://polygonscan.com/tx/0xcf7db889831038876557559c9c405f1fadec660ddacf0b74a8a0298c932c2c9b#eventlog
+* redemption - https://polygonscan.com/tx/0xb67f5bd8636c0b92ab521b3e3ea48ee7c70842ce0ed8ade4a4bb834c0658fc0b#eventlog

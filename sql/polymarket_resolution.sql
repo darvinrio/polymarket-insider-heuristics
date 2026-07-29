@@ -36,30 +36,6 @@ short_list_markets as (
         )) = 0
         -- ensure that outcome of token matches final outcome
         -- and lower(token_outcome) = lower(outcome)
-        and token_id in (
-            uint256'80172139326701765108593354605737918733332031006149436614549251803199576580256',
-            uint256'7195773232487043266978476530577454342538487460595382033047573657844322304414',
-            uint256'74552596225669253620878472148189203079227772907726247409482369584444874921155',
-            uint256'5623316591615451597601053453950462135219854616785584711264969061701991288999',
-            uint256'44725091126499333899568177448038860509765437354247408321452950536416452787104',
-            uint256'113384067667705168345314119917208860058593041651598365026330742747798385341969',
-            uint256'26837980823508254470249280319475503386893494717052596977838170518162147923721',
-
-
-            --
-            uint256'104759514460241892139371002205428862441630463557129279399757469741241677798219',
-            uint256'50934272987968315458423599988438377587631614891292186397039214412260765171905',
-            uint256'101510735805402334165766528202764835790000213929369598932788615758835645874547',
-            uint256'66232512034857544876752159572610185845353012140655737948053748904523938013701',
-            uint256'17305557643465067329253011405539831465600699322982179786670382602003786940905',
-            uint256'105822451351258779373414887922960431462248423534899454345965193715068300731564',
-            uint256'68284740559688870130006994131102415275712442208886316027960220135102135302927',
-
-
-            uint256'35123492166352861493939502586229936226942118018972695076283528793811859916330',
-
-            0
-        )
 ),
 trades_level_1 as (
     select
@@ -140,7 +116,6 @@ trades_level_3 as (
     from trades_level_2
 ),
 trades_level_4 as (
-
     select
         block_number,
         block_time,
@@ -234,6 +209,72 @@ batch_transfers as (
     and u.token_id in (select token_id from short_list_markets)
     -- and b.ids[1] in (select token_id from short_list_markets)
     and b.evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- trader filter
+    and (
+        "from" in (select maker from short_list_wallets)
+        or
+        "to" in (select maker from short_list_wallets)
+    )
+),
+single_transfers as (
+    select
+        evt_block_time,
+        evt_block_number,
+        evt_index,
+        evt_tx_hash,
+        operator,
+        "from" as sender,
+        "to" as recipient,
+        b.id as token_id,
+        b.value/1e6 as shares,
+
+        s.question,
+        s.event_market_name,
+        s.final_outcome,
+        s.token_outcome,
+        s.condition_id,
+        s.neg_risk,
+        s.market_start_time,
+        s.market_end_time,
+        s.orders_end_time
+    from polymarket_polygon.ctf_evt_transfersingle b
+        left join short_list_markets s
+            on b.id = s.token_id
+    where true
+    and evt_block_date >= date'2025-10-01'
+    and evt_block_date <= date'2026-05-01'
+    -- and evt_block_date < date'2025-12-01'
+    and operator not in (
+        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
+        0xc5d563a36ae78145c45a50134d48a1215220f80a, -- negrisk v1
+        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
+        0x0000000000000000000000000000000000000000
+    )
+    and "to" not in (
+        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
+        0xc5d563a36ae78145c45a50134d48a1215220f80a,  -- negrisk v1
+        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
+        0x0000000000000000000000000000000000000000
+    )
+    and "from" not in (
+        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
+        0xc5d563a36ae78145c45a50134d48a1215220f80a, -- negrisk v1
+        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
+        0x0000000000000000000000000000000000000000
+    )
+    -- filter out
+    and b.id in (select token_id from short_list_markets)
+    -- and b.ids[1] in (select token_id from short_list_markets)
+    and b.evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- trader filter
+    and (
+        "from" in (select maker from short_list_wallets)
+        or
+        "to" in (select maker from short_list_wallets)
+    )
 ),
 splits as (
     select
@@ -533,6 +574,58 @@ merges_splits_converts as (
         trade_type
     from converts
 ),
+single_transfer_deltas as (
+    select
+        evt_block_time as block_time,
+        evt_index,
+        evt_block_number as block_number,
+        evt_tx_hash as tx_hash,
+        sender as trader,
+        token_id,
+        token_outcome as maker_token_outcome,
+        condition_id,
+        neg_risk,
+        question,
+        final_outcome,
+        market_start_time,
+        market_end_time,
+        orders_end_time,
+        event_market_name,
+        0 as usd,
+        -shares as shares_delta,
+        0 as shares_bought,
+        0 as shares_sold,
+        0 as usd_invested,
+        0 as usd_realized,
+        'transfer_out' as trade_type
+    from single_transfers
+    union all
+
+    select
+        evt_block_time as block_time,
+        evt_index,
+        evt_block_number as block_number,
+        evt_tx_hash as tx_hash,
+        recipient as trader,
+        token_id,
+        token_outcome as maker_token_outcome,
+        condition_id,
+        neg_risk,
+        question,
+        final_outcome,
+        market_start_time,
+        market_end_time,
+        orders_end_time,
+        event_market_name,
+        0 as usd,
+        shares as shares_delta,
+        0 as shares_bought,
+        0 as shares_sold,
+        0 as usd_invested,
+        0 as usd_realized,
+        'transfer_in' as trade_type
+    from single_transfers
+),
 audit_txs as (
     select *
     from merges_splits_converts
@@ -540,6 +633,9 @@ audit_txs as (
     select *,
         'clob' as trade_type
     from trade_deltas
+    union all
+    select *
+    from single_transfer_deltas
 ),
 audit_aggr as (
     select
@@ -573,6 +669,12 @@ audit_aggr as (
         sum(if(trade_type='convert_from_no', shares_delta, 0)) as convert_from_no_shares_delta,
         count(if(trade_type='convert_from_no', 1, null)) as convert_from_no_s,
 
+        sum(if(trade_type='transfer_in', shares_delta, 0)) as transfer_in_shares_delta,
+        count(if(trade_type='transfer_in', 1, null)) as transfer_ins,
+
+        sum(if(trade_type='transfer_out', shares_delta, 0)) as transfer_out_shares_delta,
+        count(if(trade_type='transfer_out', 1, null)) as transfer_outs,
+
         sum(shares_delta) as total_shares
     from audit_txs
     group by 1,2,3,4,5,6,7,8,9,10,11
@@ -590,13 +692,14 @@ select *,
         0
     ) - usd_invested + usd_realized as final_profit
 from audit_aggr
--- where maker = 0xee50a31c3f5a7c77824b12a941a54388a2827ed6
 where true
--- -- total_shares < 0
+and total_shares < 0
 -- -- and neg_risk = 'False'
-and trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
--- order by total_shares desc
--- limit 10
+-- and trader = 0xee50a31c3f5a7c77824b12a941a54388a2827ed6
+-- and trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
+-- and trader = 0xd058d668771b6f4d0f8ee4c345089e369d98c532
+order by total_shares
+limit 10
 
 -- select * from audit_txs
 -- where trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
