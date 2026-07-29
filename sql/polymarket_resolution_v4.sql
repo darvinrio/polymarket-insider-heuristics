@@ -194,6 +194,7 @@ batch_transfers as (
         evt_block_number,
         evt_index,
         evt_tx_hash,
+        operator,
         "from" as sender,
         "to" as recipient,
         u.token_id,
@@ -288,7 +289,7 @@ merges as (
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     and b.recipient in (select maker from short_list_wallets)
 ),
-converts as (
+converts_to_yes as (
     select
         p.evt_block_time,
         p.evt_block_number,
@@ -300,13 +301,15 @@ converts as (
         b.recipient as trader,
         b.token_id,
         b.shares as shares,
-        'convert' as trade_type,
+        'convert to yes' as trade_type,
         b.question,
         b.event_market_name
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
             and p.evt_index = b.evt_index + 1
+            -- and b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296 -- not necessary imo
+            and b.recipient = p.stakeholder
         -- join short_list_markets s
         --     on p.conditionId = s.condition_id
         -- join trades t
@@ -318,6 +321,49 @@ converts as (
     -- and p.conditionId in (select condition_id from short_list_markets)
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     and b.recipient in (select maker from short_list_wallets)
+),
+converts_from_no as (
+    select
+        p.evt_block_time,
+        p.evt_block_number,
+        p.evt_index,
+        p.evt_tx_hash,
+        -- p.conditionId as condition_id,
+        p.marketId as condition_id,
+        p.amount,
+        b.sender as trader,
+        b.token_id,
+        - b.shares as shares,
+        'convert from no' as trade_type,
+        b.question,
+        b.event_market_name
+    from polymarket_polygon.negriskadapter_evt_positionsconverted p
+        join batch_transfers b
+            on p.evt_tx_hash = b.evt_tx_hash
+            and b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
+            and b.sender = p.stakeholder
+            -- and p.evt_index <= b.evt_index + 6
+            -- event list: sender no, minted no, fee colat, colat, fee yes, yes, position converted
+            and p.evt_index <= b.evt_index + 4
+            -- v1 has no fees, so lets ignore fee colat and fee yes
+        -- join short_list_markets s
+        --     on p.conditionId = s.condition_id
+        -- join trades t
+        --     on p.evt_tx_hash != t.tx_hash
+    where true
+    and evt_block_date >= date'2025-10-01'
+    and evt_block_date <= date'2026-05-01'
+    -- and evt_block_date < date'2025-12-01'
+    -- and p.conditionId in (select condition_id from short_list_markets)
+    and p.evt_tx_hash not in (select tx_hash from trades_level_1)
+    and b.sender in (select maker from short_list_wallets)
+),
+converts as (
+    select *
+    from converts_to_yes
+    union all
+    select *
+    from converts_from_no
 ),
 trade_deltas as (
     -- one can only include maker since
@@ -558,7 +604,7 @@ from resolutions
 where true
 -- -- total_shares < 0
 -- -- and neg_risk = 'False'
--- and maker = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
+and maker = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- order by total_shares desc
 -- limit 10
 
