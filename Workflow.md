@@ -52,3 +52,4 @@ sanity checks:
 * one transfer batch - https://polygonscan.com/tx/0x22bab7042c3e4db919c553f37bf3adedf25b7f26cbda2770101b30e48b424ca4#eventlog
 * position convert - https://polygonscan.com/tx/0x5ff247bce26e8c3f66325a64dc25bc0e9bcaeac10a92213f5a919a9105633c56#eventlog
 * no order position split - https://polygonscan.com/tx/0xa5e79271aceadbcd24d11590c6853de0b54a06d3d005d8f3ea010da02d3411c4#eventlog
+* single transfers - https://polygonscan.com/tx/0x8ef8f40527122be70189cce3767c5985484d2e320d8b40654da706db46e2f446#eventlog

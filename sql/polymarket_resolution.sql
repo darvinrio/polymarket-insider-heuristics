@@ -10,10 +10,15 @@ short_list_markets as (
         event_market_name,
         from_hex(condition_id) as condition_id,
         tags,
+        neg_risk,
         from_iso8601_timestamp(market_start_time) as market_start_time,
         from_iso8601_timestamp(market_end_time) as market_end_time,
         resolved_on_timestamp,
-        outcome,
+        least(
+            resolved_on_timestamp,
+            from_iso8601_timestamp(market_end_time)
+        ) as orders_end_time,
+        outcome as final_outcome,
         token_outcome
     from polymarket_polygon.market_details
     where true
@@ -63,7 +68,7 @@ trades_level_1 as (
         s.market_start_time,
         s.market_end_time,
         s.resolved_on_timestamp,
-        s.outcome as final_outcome,
+        s.final_outcome,
         price as maker_price,
         amount as maker_usd,
         last_value(asset_id) over(
@@ -80,10 +85,7 @@ trades_level_1 as (
             then true
             else false
         end as is_full_order,
-        least(
-            resolved_on_timestamp,
-            market_end_time
-      ) as orders_end_time
+        s.orders_end_time
     from polymarket_polygon.market_trades t
         join short_list_markets s
             on t.condition_id = s.condition_id
@@ -199,8 +201,16 @@ batch_transfers as (
         "to" as recipient,
         u.token_id,
         u.shares_raw/1e6 as shares,
+
         s.question,
-        s.event_market_name
+        s.event_market_name,
+        s.final_outcome,
+        s.token_outcome,
+        s.condition_id,
+        s.neg_risk,
+        s.market_start_time,
+        s.market_end_time,
+        s.orders_end_time
     from polymarket_polygon.ctf_evt_transferbatch b
         cross join unnest(b.ids, b."values") as u(token_id, shares_raw)
         left join short_list_markets s
@@ -231,14 +241,21 @@ splits as (
         p.evt_block_number,
         p.evt_index,
         p.evt_tx_hash,
-        p.conditionId as condition_id,
+        b.condition_id,
         p.amount,
         b.recipient as trader,
         b.token_id,
         b.shares,
         'split' as trade_type,
         b.question,
-        b.event_market_name
+        b.event_market_name,
+        b.final_outcome,
+        b.token_outcome,
+        -- b.condition_id,
+        b.neg_risk,
+        b.market_start_time,
+        b.market_end_time,
+        b.orders_end_time
     from polymarket_polygon.ctf_evt_positionsplit p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -265,14 +282,21 @@ merges as (
         p.evt_block_number,
         p.evt_index,
         p.evt_tx_hash,
-        p.conditionId as condition_id,
+        b.condition_id,
         p.amount,
         b.sender as trader,
         b.token_id,
         -b.shares as shares,
         'merge' as trade_type,
         b.question,
-        b.event_market_name
+        b.event_market_name,
+        b.final_outcome,
+        b.token_outcome,
+        -- b.condition_id,
+        b.neg_risk,
+        b.market_start_time,
+        b.market_end_time,
+        b.orders_end_time
     from polymarket_polygon.ctf_evt_positionsmerge p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -296,14 +320,21 @@ converts_to_yes as (
         p.evt_index,
         p.evt_tx_hash,
         -- p.conditionId as condition_id,
-        p.marketId as condition_id,
+        b.condition_id,
         p.amount,
         b.recipient as trader,
         b.token_id,
         b.shares as shares,
         'convert to yes' as trade_type,
         b.question,
-        b.event_market_name
+        b.event_market_name,
+        b.final_outcome,
+        b.token_outcome,
+        -- b.condition_id,
+        b.neg_risk,
+        b.market_start_time,
+        b.market_end_time,
+        b.orders_end_time
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -329,14 +360,21 @@ converts_from_no as (
         p.evt_index,
         p.evt_tx_hash,
         -- p.conditionId as condition_id,
-        p.marketId as condition_id,
+        b.condition_id,
         p.amount,
         b.sender as trader,
         b.token_id,
         - b.shares as shares,
         'convert from no' as trade_type,
         b.question,
-        b.event_market_name
+        b.event_market_name,
+        b.final_outcome,
+        b.token_outcome,
+        -- b.condition_id,
+        b.neg_risk,
+        b.market_start_time,
+        b.market_end_time,
+        b.orders_end_time
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -427,14 +465,14 @@ merges_splits_converts as (
         evt_tx_hash as tx_hash,
         trader,
         token_id,
-        null as maker_token_outcome,
-        null as condition_id,
-        null as neg_risk,
+        token_outcome as maker_token_outcome,
+        condition_id,
+        neg_risk,
         question,
-        null as final_outcome,
-        null as market_start_time,
-        null as market_end_time,
-        null as orders_end_time,
+        final_outcome,
+        market_start_time,
+        market_end_time,
+        orders_end_time,
         event_market_name,
         shares/2 as usd,
         -shares as shares_delta,
@@ -452,14 +490,14 @@ merges_splits_converts as (
         evt_tx_hash as tx_hash,
         trader,
         token_id,
-        null as maker_token_outcome,
-        null as condition_id,
-        null as neg_risk,
+        token_outcome as maker_token_outcome,
+        condition_id,
+        neg_risk,
         question,
-        null as final_outcome,
-        null as market_start_time,
-        null as market_end_time,
-        null as orders_end_time,
+        final_outcome,
+        market_start_time,
+        market_end_time,
+        orders_end_time,
         event_market_name,
         shares/2 as usd,
         shares as shares_delta,
@@ -477,14 +515,14 @@ merges_splits_converts as (
         evt_tx_hash as tx_hash,
         trader,
         token_id,
-        null as maker_token_outcome,
-        null as condition_id,
-        null as neg_risk,
+        token_outcome as maker_token_outcome,
+        condition_id,
+        neg_risk,
         question,
-        null as final_outcome,
-        null as market_start_time,
-        null as market_end_time,
-        null as orders_end_time,
+        final_outcome,
+        market_start_time,
+        market_end_time,
+        orders_end_time,
         event_market_name,
         0 as usd,
         shares as shares_delta,
@@ -503,89 +541,41 @@ audit_txs as (
         'clob' as trade_type
     from trade_deltas
 ),
-trader_stats as (
+audit_aggr as (
     select
-        maker,
-        maker_asset,
+        trader,
+        token_id,
+        question,
+        event_market_name,
+        maker_token_outcome,
+        final_outcome,
         condition_id,
         neg_risk,
-
-        question,
         market_start_time,
         market_end_time,
         orders_end_time,
-        final_outcome,
-        maker_token_outcome,
+        sum(if(trade_type='clob', shares_delta, 0)) as shares_delta,
+        sum(if(trade_type='clob', shares_bought, 0)) as shares_bought,
+        sum(if(trade_type='clob', shares_sold, 0)) as shares_sold,
+        sum(if(trade_type='clob', usd_invested, 0)) as usd_invested,
+        sum(if(trade_type='clob', usd_realized, 0)) as usd_realized,
+        count(if(trade_type='clob', 1, null)) as trades,
 
-        event_market_name,
-        sum(shares_delta) as final_shares,
-        sum(shares_bought) as shares_bought,
-        sum(shares_sold) as shares_sold,
-        sum(usd_invested) as usd_invested,
-        sum(usd_realized) as usd_realized,
-        count(*) as trades
-    from trade_deltas
+        sum(if(trade_type='merge', shares_delta, 0)) as merge_shares_delta,
+        count(if(trade_type='merge', 1, null)) as merges,
+
+        sum(if(trade_type='split', shares_delta, 0)) as split_shares_delta,
+        count(if(trade_type='split', 1, null)) as splits,
+
+        sum(if(trade_type='convert_to_yes', shares_delta, 0)) as convert_to_yes_shares_delta,
+        count(if(trade_type='convert_to_yes', 1, null)) as convert_to_yes_s,
+
+        sum(if(trade_type='convert_from_no', shares_delta, 0)) as convert_from_no_shares_delta,
+        count(if(trade_type='convert_from_no', 1, null)) as convert_from_no_s,
+
+        sum(shares_delta) as total_shares
+    from audit_txs
     group by 1,2,3,4,5,6,7,8,9,10,11
-),
-merges_stats as (
-    select
-        trader,
-        token_id,
-        condition_id,
-        sum(shares) as merge_shares,
-        count(*) as merges
-    from merges
-    group by 1,2,3
-),
-splits_stats as (
-    select
-        trader,
-        token_id,
-        condition_id,
-        sum(shares) as split_shares,
-        count(*) as splits
-    from splits
-    where trade_type = 'split'
-    group by 1,2,3
-),
-converts_stats as (
-    select
-        trader,
-        token_id,
-        -- condition_id,
-        sum(shares) as convert_shares,
-        count(*) as converts
-    from converts
-    group by 1,2 --,3
-),
-resolutions as (
-    select
-        t.*,
-        m.merge_shares,
-        m.merges,
-        s.split_shares,
-        s.splits,
-        c.convert_shares,
-        c.converts,
-        t.shares_bought
-            - t.shares_sold
-            + coalesce(m.merge_shares,0)
-            + coalesce(s.split_shares,0)
-            + coalesce(c.convert_shares,0)
-        as total_shares
-    from trader_stats t
-        left join merges_stats m
-            on t.maker = m.trader
-            and t.maker_asset = m.token_id
-            and t.condition_id = m.condition_id
-        left join splits_stats s
-            on t.maker = s.trader
-            and t.maker_asset = s.token_id
-            and t.condition_id = s.condition_id
-        left join converts_stats c
-            on t.maker = c.trader
-            and t.maker_asset = c.token_id
-            -- and t.condition_id = c.condition_id
 )
 
 select *,
@@ -599,12 +589,12 @@ select *,
         total_shares,
         0
     ) - usd_invested + usd_realized as final_profit
-from resolutions
+from audit_aggr
 -- where maker = 0xee50a31c3f5a7c77824b12a941a54388a2827ed6
 where true
 -- -- total_shares < 0
 -- -- and neg_risk = 'False'
-and maker = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
+and trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- order by total_shares desc
 -- limit 10
 
