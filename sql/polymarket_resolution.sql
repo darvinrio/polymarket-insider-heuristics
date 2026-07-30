@@ -576,7 +576,7 @@ merges_splits_converts as (
         orders_end_time,
         event_market_name,
         shares/2 as usd,
-        -shares as shares_delta,
+        shares as shares_delta,
         0 as shares_bought,
         shares as shares_sold,
         0 as usd_invested,
@@ -802,3 +802,5 @@ limit 10
 -- 0x97f7e9d839a3d94158c16ae7a1ccfd494a66ff980131ad0fc87bc98b7b1dc1c1
 -- False
 -- Over $300M committed to the Monad public sale?
+
+-- 0x84571f1bf97a5c710cbe51daff2dd4556cc887fd - 15772492675271690004224774579529648001354106136177152441934501654602602558586
