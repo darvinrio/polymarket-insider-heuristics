@@ -1,6 +1,23 @@
 with
-short_list_wallets as (
-    select * from dune.pyor_xyz.dataset_polymarket_sus_score_test
+-- short_list_wallets as (
+--     select * from dune.pyor_xyz.dataset_polymarket_sus_score_test
+-- ),
+filter_wallets as (
+    select * from (
+        values
+        (0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0), -- fee module
+        (0xd4aa6f8e91cfea29b66a48ebff523aafbdbbd40c), -- fee main
+        (0xf21a25DD01ccA63A96adF862F4002d1A186DecB2), -- fee old
+        (0x525e4001f6DaD9406dFd84f3331D2B9b95c40b73), -- negRisk fee
+        (0x78769D50Be1763ed1CA0D5E878D93f05aabff29e), -- negrisk fee old
+        (0xb768891e3130f6df18214ac804d4db76c2c37730), -- negrisk fee new
+        (0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e), -- ctf exchange v1
+        (0x4D97DCd97eC945f40cF65F87097ACe5EA0476045), -- ctf
+        (0xc5d563a36ae78145c45a50134d48a1215220f80a), -- negrisk v1
+        (0xd91e80cf2e7be2e162c6513ced06f1dd0da35296), -- negrisk adapter
+        (0x3A3BD7bb9528E159577F7C2e685CC81A765002E2), -- wcol
+        (0x0000000000000000000000000000000000000000)
+    ) as v(wallet)
 ),
 short_list_markets as (
     select distinct
@@ -73,7 +90,7 @@ trades_level_1 as (
         -- and block_month < date'2025-12-01'
         and contract_version = 'v1'
         and t.condition_id in (select condition_id from short_list_markets)
-        and t.maker in (select maker from short_list_wallets)
+        -- and t.maker in (select maker from short_list_wallets)
 ),
 trades_level_2 as (
     select
@@ -210,11 +227,11 @@ batch_transfers as (
     -- and b.ids[1] in (select token_id from short_list_markets)
     and b.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- trader filter
-    and (
-        "from" in (select maker from short_list_wallets)
-        or
-        "to" in (select maker from short_list_wallets)
-    )
+    -- and (
+    --     "from" in (select maker from short_list_wallets)
+    --     or
+    --     "to" in (select maker from short_list_wallets)
+    -- )
 ),
 stray_batch_transfers as (
     select
@@ -239,37 +256,19 @@ stray_batch_transfers as (
         orders_end_time
     from batch_transfers b
     where true
-    and operator not in (
-        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
-        0xc5d563a36ae78145c45a50134d48a1215220f80a, -- negrisk v1
-        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
-        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
-        0x0000000000000000000000000000000000000000
-    )
-    and sender not in (
-        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
-        0xc5d563a36ae78145c45a50134d48a1215220f80a,  -- negrisk v1
-        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
-        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
-        0x0000000000000000000000000000000000000000
-    )
-    and recipient not in (
-        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
-        0xc5d563a36ae78145c45a50134d48a1215220f80a, -- negrisk v1
-        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
-        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
-        0x0000000000000000000000000000000000000000
-    )
+    and operator not in (select wallet from filter_wallets)
+    and sender not in (select wallet from filter_wallets)
+    and recipient not in (select wallet from filter_wallets)
     -- filter out
     and token_id in (select token_id from short_list_markets)
     -- and b.ids[1] in (select token_id from short_list_markets)
     and evt_tx_hash not in (select tx_hash from trades_level_1)
     -- trader filter
-    and (
-        sender in (select maker from short_list_wallets)
-        or
-        recipient in (select maker from short_list_wallets)
-    )
+    -- and (
+    --     sender in (select maker from short_list_wallets)
+    --     or
+    --     recipient in (select maker from short_list_wallets)
+    -- )
 ),
 single_transfers as (
     select
@@ -299,37 +298,19 @@ single_transfers as (
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
     -- and evt_block_date < date'2025-12-01'
-    and operator not in (
-        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
-        0xc5d563a36ae78145c45a50134d48a1215220f80a, -- negrisk v1
-        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
-        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
-        0x0000000000000000000000000000000000000000
-    )
-    and "to" not in (
-        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
-        0xc5d563a36ae78145c45a50134d48a1215220f80a,  -- negrisk v1
-        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
-        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
-        0x0000000000000000000000000000000000000000
-    )
-    and "from" not in (
-        0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
-        0xc5d563a36ae78145c45a50134d48a1215220f80a, -- negrisk v1
-        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
-        0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0, -- fee module
-        0x0000000000000000000000000000000000000000
-    )
+    and operator not in (select wallet from filter_wallets)
+    and "to" not in (select wallet from filter_wallets)
+    and "from" not in (select wallet from filter_wallets)
     -- filter out
     and b.id in (select token_id from short_list_markets)
     -- and b.ids[1] in (select token_id from short_list_markets)
     and b.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- trader filter
-    and (
-        "from" in (select maker from short_list_wallets)
-        or
-        "to" in (select maker from short_list_wallets)
-    )
+    -- and (
+    --     "from" in (select maker from short_list_wallets)
+    --     or
+    --     "to" in (select maker from short_list_wallets)
+    -- )
 ),
 all_single_transfers as (
     select * from single_transfers
@@ -375,7 +356,7 @@ splits as (
     -- and evt_block_date < date'2025-12-01'
     and p.conditionId in (select condition_id from short_list_markets)
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
-    and b.recipient in (select maker from short_list_wallets)
+    -- and b.recipient in (select maker from short_list_wallets)
 ),
 merges as (
     select
@@ -412,7 +393,7 @@ merges as (
     -- and evt_block_date < date'2025-12-01'
     and p.conditionId in (select condition_id from short_list_markets)
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
-    and b.recipient in (select maker from short_list_wallets)
+    -- and b.recipient in (select maker from short_list_wallets)
 ),
 converts_to_yes as (
     select
@@ -426,7 +407,7 @@ converts_to_yes as (
         b.recipient as trader,
         b.token_id,
         b.shares as shares,
-        'convert to yes' as trade_type,
+        'convert_to_yes' as trade_type,
         b.question,
         b.event_market_name,
         b.final_outcome,
@@ -452,7 +433,7 @@ converts_to_yes as (
     -- and evt_block_date < date'2025-12-01'
     -- and p.conditionId in (select condition_id from short_list_markets)
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
-    and b.recipient in (select maker from short_list_wallets)
+    -- and b.recipient in (select maker from short_list_wallets)
 ),
 converts_from_no as (
     select
@@ -466,7 +447,7 @@ converts_from_no as (
         b.sender as trader,
         b.token_id,
         - b.shares as shares,
-        'convert from no' as trade_type,
+        'convert_from_no' as trade_type,
         b.question,
         b.event_market_name,
         b.final_outcome,
@@ -484,6 +465,7 @@ converts_from_no as (
             -- and p.evt_index <= b.evt_index + 6
             -- event list: sender no, minted no, fee colat, colat, fee yes, yes, position converted
             and p.evt_index <= b.evt_index + 4
+            and p.evt_index > b.evt_index
             -- v1 has no fees, so lets ignore fee colat and fee yes
         -- join short_list_markets s
         --     on p.conditionId = s.condition_id
@@ -495,7 +477,7 @@ converts_from_no as (
     -- and evt_block_date < date'2025-12-01'
     -- and p.conditionId in (select condition_id from short_list_markets)
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
-    and b.sender in (select maker from short_list_wallets)
+    -- and b.sender in (select maker from short_list_wallets)
 ),
 converts as (
     select *
@@ -753,12 +735,14 @@ select *,
     ) - usd_invested + usd_realized as final_profit
 from audit_aggr
 where true
-and total_shares < 0
-and trader in (select maker from short_list_wallets)
+and total_shares < -1
+-- and trader in (select maker from short_list_wallets)
+-- and trader = 0x84571f1bf97a5c710cbe51daff2dd4556cc887fd
 -- -- and neg_risk = 'False'
 -- and trader = 0xee50a31c3f5a7c77824b12a941a54388a2827ed6
 -- and trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- and trader = 0xd058d668771b6f4d0f8ee4c345089e369d98c532
+and trader not in (select wallet from filter_wallets)
 order by total_shares
 limit 10
 
@@ -796,7 +780,6 @@ limit 10
 -- where trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- and token_id = uint256'80172139326701765108593354605737918733332031006149436614549251803199576580256'
 -- order by block_time, evt_index
-
 -- -- 0x793e67beddb49b1c4ea8819c74644056a5d8baef
 -- 17729640410767428830891271907670356081389789554536307716651081291770350315708
 -- 0x97f7e9d839a3d94158c16ae7a1ccfd494a66ff980131ad0fc87bc98b7b1dc1c1
