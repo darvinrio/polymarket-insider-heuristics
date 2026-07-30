@@ -42,15 +42,15 @@ short_list_markets as (
         and from_iso8601_timestamp(market_start_time) > date'2025-10-01'
         and resolved_on_timestamp < date'2026-04-28'
         -- and resolved_on_timestamp < date'2025-12-01'
-        and cardinality(array_intersect(
-            split(tags, ', '),
-            [
-                'Crypto Prices', 'Up or Down',
-                'Esports', 'Recurring',
-                'Games', 'Sports',
-                'Tweet Markets'
-            ]
-        )) = 0
+        -- and cardinality(array_intersect(
+        --     split(tags, ', '),
+        --     [
+        --         'Crypto Prices', 'Up or Down',
+        --         'Esports', 'Recurring',
+        --         'Games', 'Sports',
+        --         'Tweet Markets'
+        --     ]
+        -- )) = 0
         -- ensure that outcome of token matches final outcome
         -- and lower(token_outcome) = lower(outcome)
 ),
