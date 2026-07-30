@@ -368,7 +368,7 @@ merges as (
         p.amount,
         b.sender as trader,
         b.token_id,
-        -b.shares as shares,
+        b.shares as shares,
         'merge' as trade_type,
         b.question,
         b.event_market_name,
@@ -558,7 +558,7 @@ merges_splits_converts as (
         orders_end_time,
         event_market_name,
         shares/2 as usd,
-        shares as shares_delta,
+        -shares as shares_delta,
         0 as shares_bought,
         shares as shares_sold,
         0 as usd_invested,
@@ -695,15 +695,19 @@ audit_aggr as (
         sum(if(trade_type='clob', shares_delta, 0)) as shares_delta,
         sum(if(trade_type='clob', shares_bought, 0)) as shares_bought,
         sum(if(trade_type='clob', shares_sold, 0)) as shares_sold,
-        sum(if(trade_type='clob', usd_invested, 0)) as usd_invested,
-        sum(if(trade_type='clob', usd_realized, 0)) as usd_realized,
+        sum(if(trade_type='clob', usd_invested, 0)) as trade_usd_invested,
+        sum(if(trade_type='clob', usd_realized, 0)) as trade_usd_realized,
         count(if(trade_type='clob', 1, null)) as trades,
 
         sum(if(trade_type='merge', shares_delta, 0)) as merge_shares_delta,
         count(if(trade_type='merge', 1, null)) as merges,
+        sum(if(trade_type='merge', usd_invested, 0)) as merge_usd_invested,
+        sum(if(trade_type='merge', usd_realized, 0)) as merge_usd_realized,
 
         sum(if(trade_type='split', shares_delta, 0)) as split_shares_delta,
         count(if(trade_type='split', 1, null)) as splits,
+        sum(if(trade_type='split', usd_invested, 0)) as split_usd_invested,
+        sum(if(trade_type='split', usd_realized, 0)) as split_usd_realized,
 
         sum(if(trade_type='convert_to_yes', shares_delta, 0)) as convert_to_yes_shares_delta,
         count(if(trade_type='convert_to_yes', 1, null)) as convert_to_yes_s,
@@ -717,7 +721,9 @@ audit_aggr as (
         sum(if(trade_type='transfer_out', shares_delta, 0)) as transfer_out_shares_delta,
         count(if(trade_type='transfer_out', 1, null)) as transfer_outs,
 
-        sum(shares_delta) as total_shares
+        sum(usd_invested) as usd_invested,
+        sum(usd_realized) as usd_realized,
+        sum(shares_delta) as total_shares,
     from audit_txs
     group by 1,2,3,4,5,6,7,8,9,10,11
 )
@@ -735,16 +741,17 @@ select *,
     ) - usd_invested + usd_realized as final_profit
 from audit_aggr
 where true
-and total_shares < -1
+-- and total_shares < -1
 -- and trader in (select maker from short_list_wallets)
 -- and trader = 0x84571f1bf97a5c710cbe51daff2dd4556cc887fd
 -- -- and neg_risk = 'False'
 -- and trader = 0xee50a31c3f5a7c77824b12a941a54388a2827ed6
 -- and trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- and trader = 0xd058d668771b6f4d0f8ee4c345089e369d98c532
+and trader = 0xce296aaf92ecc022cc6608a54c622bb1c445b71b
 and trader not in (select wallet from filter_wallets)
-order by total_shares
-limit 10
+-- order by total_shares desc
+-- limit 10
 
 -- select * from audit_txs
 -- where trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
