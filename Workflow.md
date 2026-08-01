@@ -55,4 +55,14 @@ sanity checks:
 * single transfers - https://polygonscan.com/tx/0x8ef8f40527122be70189cce3767c5985484d2e320d8b40654da706db46e2f446#eventlog
 * standalone batch transfer - https://polygonscan.com/tx/0xcf7db889831038876557559c9c405f1fadec660ddacf0b74a8a0298c932c2c9b#eventlog
 * redemption - https://polygonscan.com/tx/0xb67f5bd8636c0b92ab521b3e3ea48ee7c70842ce0ed8ade4a4bb834c0658fc0b#eventlog
+* convert with usdc - https://polygonscan.com/tx/0x3a2e7f588e1b67afd2cc03f854bfe8b8f1ec2e9762d16da6fd89b56b8bd60689#eventlog
 * weird trade - https://polygonscan.com/tx/0xae9ce3b1971fc9c0d3731c6fa5eb7d930eeb2c5cd169dc395bec0271acfe9195#eventlog
+
+refs:
+* [Polymarket Volume Is Being Double-Counted - Storm Slivkoff - Paradigm](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted)
+* [U.S. Soldier Charged With Using Classified Information To Profit From Prediction Market Bets - Office of Public Affairs](https://www.justice.gov/opa/pr/us-soldier-charged-using-classified-information-profit-prediction-market-bets)
+* [Google Employee Charged With Insider Trading](https://www.justice.gov/usao-sdny/pr/google-employee-charged-insider-trading)
+* [Polymarket bettors put $3 million on which crypto firm ZachXBT will expose next - Coindesk](https://www.coindesk.com/markets/2026/02/24/polymarket-bettors-put-usd3-million-on-which-crypto-firm-zachxbt-will-expose-next)
+* [Insiders cashed in before Axiom reveal, Wallets bagged $1M on Polymarket](https://www.cryptopolitan.com/insiders-cashed-in-before-axiom-reveal-wallets-bagged-1m-on-polymarket)
+* [Polymarket PnL Calculation: Why Your Profit Numbers Are Probably Wrong](https://leolabs.me/blog/pnl-calculation/en/)
+* [Decoding the Digital Tea Leaves: A Guide to Analyzing Polymarket’s On-Chain Order Data](https://yzc.me/x01Crypto/decoding-polymarket)

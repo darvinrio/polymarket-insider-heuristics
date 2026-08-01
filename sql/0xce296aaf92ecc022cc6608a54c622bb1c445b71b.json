@@ -1,0 +1,40 @@
+[
+  {
+    "proxyWallet": "0xce296aaf92ecc022cc6608a54c622bb1c445b71b",
+    "asset": "113016318552201794810557514937858326971831314187777686552865771003364240784846",
+    "conditionId": "0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9",
+    "avgPrice": 0.5,
+    "totalBought": 11197.714711,
+    "realizedPnl": 5402.312546,
+    "curPrice": 1,
+    "title": "Will Gemini 3.0 be released on November 17 2025?",
+    "slug": "will-gemini-3pt0-be-released-on-november-17-2025",
+    "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/gemini-3pt0-released-by-Jgab86ADS9yM.png",
+    "eventSlug": "what-day-will-gemini-3pt0-be-released",
+    "outcome": "No",
+    "outcomeIndex": 1,
+    "oppositeOutcome": "Yes",
+    "oppositeAsset": "46687945077176076830096477597797725250961514733182621481405351828163193903577",
+    "endDate": "2025-11-30T00:00:00Z",
+    "timestamp": 1763449839
+  },
+  {
+    "proxyWallet": "0xce296aaf92ecc022cc6608a54c622bb1c445b71b",
+    "asset": "46687945077176076830096477597797725250961514733182621481405351828163193903577",
+    "conditionId": "0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9",
+    "avgPrice": 0.005817,
+    "totalBought": 17076.61,
+    "realizedPnl": -5388.355101,
+    "curPrice": 0,
+    "title": "Will Gemini 3.0 be released on November 17 2025?",
+    "slug": "will-gemini-3pt0-be-released-on-november-17-2025",
+    "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/gemini-3pt0-released-by-Jgab86ADS9yM.png",
+    "eventSlug": "what-day-will-gemini-3pt0-be-released",
+    "outcome": "Yes",
+    "outcomeIndex": 0,
+    "oppositeOutcome": "No",
+    "oppositeAsset": "113016318552201794810557514937858326971831314187777686552865771003364240784846",
+    "endDate": "2025-11-30T00:00:00Z",
+    "timestamp": 1763485657
+  }
+]
