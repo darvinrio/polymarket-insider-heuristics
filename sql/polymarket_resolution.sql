@@ -41,16 +41,16 @@ short_list_markets as (
     where true
         and from_iso8601_timestamp(market_start_time) > date'2025-10-01'
         and resolved_on_timestamp < date'2026-04-28'
-        -- and resolved_on_timestamp < date'2025-12-01'
-        -- and cardinality(array_intersect(
-        --     split(tags, ', '),
-        --     [
-        --         'Crypto Prices', 'Up or Down',
-        --         'Esports', 'Recurring',
-        --         'Games', 'Sports',
-        --         'Tweet Markets'
-        --     ]
-        -- )) = 0
+        and resolved_on_timestamp < date'2025-12-01'
+        and cardinality(array_intersect(
+            split(tags, ', '),
+            [
+                'Crypto Prices', 'Up or Down',
+                'Esports', 'Recurring',
+                'Games', 'Sports',
+                'Tweet Markets'
+            ]
+        )) = 0
         -- ensure that outcome of token matches final outcome
         -- and lower(token_outcome) = lower(outcome)
 ),
@@ -87,7 +87,7 @@ trades_level_1 as (
         -- and block_month >= date'2024-08-01'
         and block_month >= date'2025-10-01'
         and block_month <= date'2026-05-01'
-        -- and block_month < date'2025-12-01'
+        and block_month < date'2025-12-01'
         and contract_version = 'v1'
         and t.condition_id in (select condition_id from short_list_markets)
         -- and t.maker in (select maker from short_list_wallets)
@@ -210,7 +210,7 @@ batch_transfers as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    -- and evt_block_date < date'2025-12-01'
+    and evt_block_date < date'2025-12-01'
     and (
         -- split -> mint to contract, then transfer from contract
         "to" not in (
@@ -297,7 +297,7 @@ single_transfers as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    -- and evt_block_date < date'2025-12-01'
+    and evt_block_date < date'2025-12-01'
     and operator not in (select wallet from filter_wallets)
     and "to" not in (select wallet from filter_wallets)
     and "from" not in (select wallet from filter_wallets)
@@ -353,7 +353,7 @@ splits as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    -- and evt_block_date < date'2025-12-01'
+    and evt_block_date < date'2025-12-01'
     and p.conditionId in (select condition_id from short_list_markets)
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
@@ -390,7 +390,7 @@ merges as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    -- and evt_block_date < date'2025-12-01'
+    and evt_block_date < date'2025-12-01'
     and p.conditionId in (select condition_id from short_list_markets)
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
@@ -430,7 +430,7 @@ converts_to_yes as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    -- and evt_block_date < date'2025-12-01'
+    and evt_block_date < date'2025-12-01'
     -- and p.conditionId in (select condition_id from short_list_markets)
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
@@ -474,7 +474,7 @@ converts_from_no as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    -- and evt_block_date < date'2025-12-01'
+    and evt_block_date < date'2025-12-01'
     -- and p.conditionId in (select condition_id from short_list_markets)
     and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.sender in (select maker from short_list_wallets)
@@ -723,7 +723,7 @@ audit_aggr as (
 
         sum(usd_invested) as usd_invested,
         sum(usd_realized) as usd_realized,
-        sum(shares_delta) as total_shares,
+        sum(shares_delta) as total_shares
     from audit_txs
     group by 1,2,3,4,5,6,7,8,9,10,11
 )
@@ -749,11 +749,15 @@ where true
 -- and trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- and trader = 0xd058d668771b6f4d0f8ee4c345089e369d98c532
 and trader = 0xce296aaf92ecc022cc6608a54c622bb1c445b71b
+and condition_id = 0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9
 and trader not in (select wallet from filter_wallets)
 -- order by total_shares desc
 -- limit 10
 
 -- select * from audit_txs
+-- where trader = 0xce296aaf92ecc022cc6608a54c622bb1c445b71b
+-- and condition_id = 0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9
+-- order by block_time, evt_index
 -- where trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- and token_id in (
 --     uint256'80172139326701765108593354605737918733332031006149436614549251803199576580256',
@@ -779,7 +783,6 @@ and trader not in (select wallet from filter_wallets)
 
 -- where trader = 0x793e67beddb49b1c4ea8819c74644056a5d8baef
 -- and token_id = uint256'17729640410767428830891271907670356081389789554536307716651081291770350315708'
--- order by block_time, evt_index
 
 -- where maker = 0xcE296aAf92Ecc022CC6608A54c622Bb1c445b71B
 -- and condition_id = 0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9
