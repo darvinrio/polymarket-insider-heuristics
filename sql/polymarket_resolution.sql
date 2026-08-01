@@ -225,7 +225,7 @@ batch_transfers as (
     -- filter out
     and u.token_id in (select token_id from short_list_markets)
     -- and b.ids[1] in (select token_id from short_list_markets)
-    and b.evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- and b.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- trader filter
     -- and (
     --     "from" in (select maker from short_list_wallets)
@@ -262,7 +262,7 @@ stray_batch_transfers as (
     -- filter out
     and token_id in (select token_id from short_list_markets)
     -- and b.ids[1] in (select token_id from short_list_markets)
-    and evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- and evt_tx_hash not in (select tx_hash from trades_level_1)
     -- trader filter
     -- and (
     --     sender in (select maker from short_list_wallets)
@@ -304,7 +304,7 @@ single_transfers as (
     -- filter out
     and b.id in (select token_id from short_list_markets)
     -- and b.ids[1] in (select token_id from short_list_markets)
-    and b.evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- and b.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- trader filter
     -- and (
     --     "from" in (select maker from short_list_wallets)
@@ -355,7 +355,7 @@ splits as (
     and evt_block_date <= date'2026-05-01'
     and evt_block_date < date'2025-12-01'
     and p.conditionId in (select condition_id from short_list_markets)
-    and p.evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
 ),
 merges as (
@@ -392,7 +392,7 @@ merges as (
     and evt_block_date <= date'2026-05-01'
     and evt_block_date < date'2025-12-01'
     and p.conditionId in (select condition_id from short_list_markets)
-    and p.evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
 ),
 converts_to_yes as (
@@ -432,7 +432,7 @@ converts_to_yes as (
     and evt_block_date <= date'2026-05-01'
     and evt_block_date < date'2025-12-01'
     -- and p.conditionId in (select condition_id from short_list_markets)
-    and p.evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
 ),
 converts_from_no as (
@@ -476,7 +476,7 @@ converts_from_no as (
     and evt_block_date <= date'2026-05-01'
     and evt_block_date < date'2025-12-01'
     -- and p.conditionId in (select condition_id from short_list_markets)
-    and p.evt_tx_hash not in (select tx_hash from trades_level_1)
+    -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.sender in (select maker from short_list_wallets)
 ),
 converts as (
@@ -668,16 +668,21 @@ single_transfer_deltas as (
         'transfer_in' as trade_type
     from all_single_transfers
 ),
-audit_txs as (
+non_trade_txs as (
     select *
     from merges_splits_converts
+    union all
+    select *
+    from single_transfer_deltas
+),
+audit_txs as (
+    select *
+    from non_trade_txs
+    where tx_hash not in (select tx_hash from trades_level_1)
     union all
     select *,
         'clob' as trade_type
     from trade_deltas
-    union all
-    select *
-    from single_transfer_deltas
 ),
 audit_aggr as (
     select
@@ -749,7 +754,7 @@ where true
 -- and trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- and trader = 0xd058d668771b6f4d0f8ee4c345089e369d98c532
 and trader = 0xce296aaf92ecc022cc6608a54c622bb1c445b71b
-and condition_id = 0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9
+-- and condition_id = 0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9
 and trader not in (select wallet from filter_wallets)
 -- order by total_shares desc
 -- limit 10
