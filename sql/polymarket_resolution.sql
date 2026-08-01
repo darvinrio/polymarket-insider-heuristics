@@ -193,6 +193,7 @@ batch_transfers as (
         "to" as recipient,
         u.token_id,
         u.shares_raw/1e6 as shares,
+        cardinality(b.ids) as ids_count,
 
         s.question,
         s.event_market_name,
@@ -244,6 +245,7 @@ stray_batch_transfers as (
         recipient,
         token_id,
         shares,
+        ids_count,
 
         question,
         event_market_name,
@@ -281,6 +283,7 @@ single_transfers as (
         "to" as recipient,
         b.id as token_id,
         b.value/1e6 as shares,
+        1 as ids_count,
 
         s.question,
         s.event_market_name,
@@ -407,6 +410,7 @@ converts_to_yes as (
         b.recipient as trader,
         b.token_id,
         b.shares as shares,
+        1 as ids_count,
         'convert_to_yes' as trade_type,
         b.question,
         b.event_market_name,
@@ -447,6 +451,7 @@ converts_from_no as (
         b.sender as trader,
         b.token_id,
         - b.shares as shares,
+        ids_count,
         'convert_from_no' as trade_type,
         b.question,
         b.event_market_name,
@@ -607,12 +612,12 @@ merges_splits_converts as (
         market_end_time,
         orders_end_time,
         event_market_name,
-        0 as usd,
+        (ids_count - 1) * abs(shares) / ids_count  as usd,
         shares as shares_delta,
         shares as shares_bought,
         0 as shares_sold,
         0 as usd_invested,
-        0 as usd_realized,
+        (ids_count - 1) * abs(shares) / ids_count as usd_realized,
         trade_type
     from converts
 ),
@@ -719,6 +724,7 @@ audit_aggr as (
 
         sum(if(trade_type='convert_from_no', shares_delta, 0)) as convert_from_no_shares_delta,
         count(if(trade_type='convert_from_no', 1, null)) as convert_from_no_s,
+        sum(if(trade_type='convert_from_no', usd_realized, 0)) as convert_from_no_usd_realized,
 
         sum(if(trade_type='transfer_in', shares_delta, 0)) as transfer_in_shares_delta,
         count(if(trade_type='transfer_in', 1, null)) as transfer_ins,
