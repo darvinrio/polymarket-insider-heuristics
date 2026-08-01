@@ -36,7 +36,8 @@ short_list_markets as (
             from_iso8601_timestamp(market_end_time)
         ) as orders_end_time,
         outcome as final_outcome,
-        token_outcome
+        token_outcome,
+        settlement_value
     from polymarket_polygon.market_details
     where true
         and from_iso8601_timestamp(market_start_time) > date'2025-10-01'
@@ -62,6 +63,7 @@ trades_level_1 as (
         s.market_end_time,
         s.resolved_on_timestamp,
         s.final_outcome,
+        settlement_value,
         price as maker_price,
         amount as maker_usd,
         last_value(asset_id) over(
@@ -149,6 +151,7 @@ trades_level_4 as (
         orders_end_time,
         resolved_on_timestamp,
         final_outcome,
+        settlement_value,
         neg_risk,
         shares,
         builder,
@@ -203,7 +206,8 @@ batch_transfers as (
         s.neg_risk,
         s.market_start_time,
         s.market_end_time,
-        s.orders_end_time
+        s.orders_end_time,
+        s.settlement_value
     from polymarket_polygon.ctf_evt_transferbatch b
         cross join unnest(b.ids, b."values") as u(token_id, shares_raw)
         left join short_list_markets s
@@ -255,7 +259,8 @@ stray_batch_transfers as (
         neg_risk,
         market_start_time,
         market_end_time,
-        orders_end_time
+        orders_end_time,
+        settlement_value
     from batch_transfers b
     where true
     and operator not in (select wallet from filter_wallets)
@@ -293,7 +298,8 @@ single_transfers as (
         s.neg_risk,
         s.market_start_time,
         s.market_end_time,
-        s.orders_end_time
+        s.orders_end_time,
+        s.settlement_value
     from polymarket_polygon.ctf_evt_transfersingle b
         left join short_list_markets s
             on b.id = s.token_id
@@ -340,7 +346,8 @@ splits as (
         b.neg_risk,
         b.market_start_time,
         b.market_end_time,
-        b.orders_end_time
+        b.orders_end_time,
+        b.settlement_value
     from polymarket_polygon.ctf_evt_positionsplit p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -381,7 +388,8 @@ merges as (
         b.neg_risk,
         b.market_start_time,
         b.market_end_time,
-        b.orders_end_time
+        b.orders_end_time,
+        b.settlement_value
     from polymarket_polygon.ctf_evt_positionsmerge p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -420,7 +428,8 @@ converts_to_yes as (
         b.neg_risk,
         b.market_start_time,
         b.market_end_time,
-        b.orders_end_time
+        b.orders_end_time,
+        b.settlement_value
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -461,7 +470,8 @@ converts_from_no as (
         b.neg_risk,
         b.market_start_time,
         b.market_end_time,
-        b.orders_end_time
+        b.orders_end_time,
+        b.settlement_value
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
@@ -503,6 +513,7 @@ trade_deltas as (
         maker,
         maker_asset,
         maker_token_outcome,
+        settlement_value,
         condition_id,
         neg_risk,
 
@@ -554,6 +565,7 @@ merges_splits_converts as (
         trader,
         token_id,
         token_outcome as maker_token_outcome,
+        settlement_value,
         condition_id,
         neg_risk,
         question,
@@ -579,6 +591,7 @@ merges_splits_converts as (
         trader,
         token_id,
         token_outcome as maker_token_outcome,
+        settlement_value,
         condition_id,
         neg_risk,
         question,
@@ -604,6 +617,7 @@ merges_splits_converts as (
         trader,
         token_id,
         token_outcome as maker_token_outcome,
+        settlement_value,
         condition_id,
         neg_risk,
         question,
@@ -630,6 +644,7 @@ single_transfer_deltas as (
         sender as trader,
         token_id,
         token_outcome as maker_token_outcome,
+        settlement_value,
         condition_id,
         neg_risk,
         question,
@@ -656,6 +671,7 @@ single_transfer_deltas as (
         recipient as trader,
         token_id,
         token_outcome as maker_token_outcome,
+        settlement_value,
         condition_id,
         neg_risk,
         question,
@@ -696,6 +712,7 @@ audit_aggr as (
         question,
         event_market_name,
         maker_token_outcome,
+        settlement_value,
         final_outcome,
         condition_id,
         neg_risk,
@@ -736,20 +753,12 @@ audit_aggr as (
         sum(usd_realized) as usd_realized,
         sum(shares_delta) as total_shares
     from audit_txs
-    group by 1,2,3,4,5,6,7,8,9,10,11
+    group by 1,2,3,4,5,6,7,8,9,10,11,12
 )
 
 select *,
-    if(
-        lower(final_outcome) = lower(maker_token_outcome),
-        total_shares,
-        0
-    ) as resolution_profit,
-    if(
-        lower(final_outcome) = lower(maker_token_outcome),
-        total_shares,
-        0
-    ) - usd_invested + usd_realized as final_profit
+    total_shares * settlement_value as resolution_profit,
+    (total_shares * settlement_value) - usd_invested + usd_realized as final_profit
 from audit_aggr
 where true
 -- and total_shares < -1
@@ -766,10 +775,11 @@ and trader not in (select wallet from filter_wallets)
 -- limit 10
 
 -- select * from audit_txs
--- where trader = 0xce296aaf92ecc022cc6608a54c622bb1c445b71b
--- and condition_id = 0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9
+-- where trader = 0xC4D5a24a240eC9f52669e3251E0473FD0c5687cf
+-- -- and condition_id = 0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9
 -- order by block_time, evt_index
 -- where trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
+-- where trader = 0xce296aaf92ecc022cc6608a54c622bb1c445b71b
 -- and token_id in (
 --     uint256'80172139326701765108593354605737918733332031006149436614549251803199576580256',
 --     uint256'7195773232487043266978476530577454342538487460595382033047573657844322304414',
