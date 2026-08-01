@@ -56,6 +56,7 @@ sanity checks:
 * standalone batch transfer - https://polygonscan.com/tx/0xcf7db889831038876557559c9c405f1fadec660ddacf0b74a8a0298c932c2c9b#eventlog
 * redemption - https://polygonscan.com/tx/0xb67f5bd8636c0b92ab521b3e3ea48ee7c70842ce0ed8ade4a4bb834c0658fc0b#eventlog
 * convert with usdc - https://polygonscan.com/tx/0x3a2e7f588e1b67afd2cc03f854bfe8b8f1ec2e9762d16da6fd89b56b8bd60689#eventlog
+* another convert with usdc - https://polygonscan.com/tx/0x76dd910235767078e08138c9d20cd45e7024e4fd31c24d37094b90da27cf18b6#eventlog
 * weird trade - https://polygonscan.com/tx/0xae9ce3b1971fc9c0d3731c6fa5eb7d930eeb2c5cd169dc395bec0271acfe9195#eventlog
 
 refs:

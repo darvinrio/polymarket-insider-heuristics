@@ -78,8 +78,8 @@ you can aggregate to get the balances of the shares.
 
 ## Whats still missing:
 
-[] Convert USD - capture from number of NOs sold - 1 * amount of NO sold
-[] 50/50 Resolutions and other kinds of resolutions 
+- [x] Convert USD - capture from number of NOs sold - 1 * amount of NO sold
+- [x] 50/50 Resolutions and other kinds of resolutions 
 
 ## Refs
 
