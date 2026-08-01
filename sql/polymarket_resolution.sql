@@ -41,7 +41,7 @@ short_list_markets as (
     where true
         and from_iso8601_timestamp(market_start_time) > date'2025-10-01'
         and resolved_on_timestamp < date'2026-04-28'
-        and resolved_on_timestamp < date'2025-12-01'
+        -- and resolved_on_timestamp < date'2025-12-01'
         and cardinality(array_intersect(
             split(tags, ', '),
             [
@@ -87,7 +87,7 @@ trades_level_1 as (
         -- and block_month >= date'2024-08-01'
         and block_month >= date'2025-10-01'
         and block_month <= date'2026-05-01'
-        and block_month < date'2025-12-01'
+        -- and block_month < date'2025-12-01'
         and contract_version = 'v1'
         and t.condition_id in (select condition_id from short_list_markets)
         -- and t.maker in (select maker from short_list_wallets)
@@ -210,7 +210,7 @@ batch_transfers as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    and evt_block_date < date'2025-12-01'
+    -- and evt_block_date < date'2025-12-01'
     and (
         -- split -> mint to contract, then transfer from contract
         "to" not in (
@@ -297,7 +297,7 @@ single_transfers as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    and evt_block_date < date'2025-12-01'
+    -- and evt_block_date < date'2025-12-01'
     and operator not in (select wallet from filter_wallets)
     and "to" not in (select wallet from filter_wallets)
     and "from" not in (select wallet from filter_wallets)
@@ -353,7 +353,7 @@ splits as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    and evt_block_date < date'2025-12-01'
+    -- and evt_block_date < date'2025-12-01'
     and p.conditionId in (select condition_id from short_list_markets)
     -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
@@ -390,7 +390,7 @@ merges as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    and evt_block_date < date'2025-12-01'
+    -- and evt_block_date < date'2025-12-01'
     and p.conditionId in (select condition_id from short_list_markets)
     -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
@@ -430,7 +430,7 @@ converts_to_yes as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    and evt_block_date < date'2025-12-01'
+    -- and evt_block_date < date'2025-12-01'
     -- and p.conditionId in (select condition_id from short_list_markets)
     -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
@@ -474,7 +474,7 @@ converts_from_no as (
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
-    and evt_block_date < date'2025-12-01'
+    -- and evt_block_date < date'2025-12-01'
     -- and p.conditionId in (select condition_id from short_list_markets)
     -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.sender in (select maker from short_list_wallets)
