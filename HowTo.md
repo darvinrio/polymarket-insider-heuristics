@@ -24,6 +24,7 @@ Aggregate USD delta from Clob trades (built from `OrderFilled` events) and combi
 The issues with this is that: 
 1. As Storm Slivikoff pointed out [blog](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted), the order filled events need to be correctly filtered to avoid double counting. A simple fix for this is to only consider makers and ignore taker side of the trade.
 2. The main assumption that Enter and Exit is only from Clob is wrong. This can be verified by computing the shares delta from the Clob trades and performing a basic balance sanity check for negative balances.
+3. Some assumptions are transparent, and only choose to include wallets where the books close from just trades alone. However, this fails to track into consideration what the `OrderFilled` event might skip, as we will find soon.  
 
 Some means of fixes:
 1. Track shares directly - Every Polymarket position is stored as a ERC1155. This means, we can unwrap `BatchTransfer` events and combine it with `SingleTransfer` events to compute the balance at any point, like a traditional ERC20 balance. However calculating the USD invested in acquiring such a balance, spreads crossed can be cumbersome, and hence this is not viable as our main aim is to compute the PnL at any instant. This is correct way to calculate the historical shares balance, but it fails to include key data thats required for analysis. 
@@ -44,7 +45,7 @@ Its immediately obvious how, negative balances can arise, when the minting is no
 
 Convert in NegRisk: 
 [Neg Risk and Convert](https://startpolymarket.com/learn/converting-negative-risk/)
-Negrisk markets represent a set of related but mutually exclusive markets. there might 10 of these markets, but only one can resolve to YES, and the others must resolve to NO. Since holding YES across all markets or NO across all markets is a guaranteed win (PnL depends on the prices at which the aggregate position was obtained). Convert allows users to burn NO tokens for collateral USD, and potentially trade the USD for YES tokens.
+Negrisk markets represent a set of related but mutually exclusive markets. there might 10 of these markets, but only one can resolve to YES, and the others must resolve to NO. Naturally holding YES across all markets or NO across all markets is a guaranteed win (PnL depends on the prices at which the aggregate position was obtained). However, since only one can resolve to YES, the other 9 must resolve to NO. This means, having 2 NO positions guarantees a resolution (PnL depends on prices). Hence a user holding `n` multiple NO positions, can redeem USD worth `n-1` resolutions, as they are by default entitled to that irrespective of the outcome. Convert allows users to burn NO tokens for collateral USD, and potentially trade the USD for YES tokens.
 
 Heuristics:
 To include Split and Mint trades, we can track `PositionSplit` and `PositionsMerge` event. However, there are two issues: 
@@ -63,7 +64,7 @@ For Converts, there are two legs to be tracked. The NO burn and the YES mint. We
 Pricing Merge, Split and Converts (aka USD transfers):
 * Split trades -> since 1$ of collateral is deposited by the user to mint 1YES + 1NO, a simple heuristic is to price the shares at 0.5$ each
 * Merge trades -> since 1YES + 1NO is burnt to redeem 1$ of collateral, that same heuristic of pricing the shares at 0.5$ each works. 
-* Convert trades -> Convert event logs the NO tokens burnt, and mints YES tokens
+* Convert trades -> Convert event logs the NO tokens burnt, and mints YES tokens. When `n` different NO tokens are burnt, `n-1` positions are converted to USD. so we will use this to calculate the USD value of converted position as `(n-1)*shares/n` as usd value.
 
 While these include all the normal Polymarket operations, Since the positions are ERC 1155 positions, the holder can themselves transfer these assets. Hence we need to factor these **stray** `SingleTransfer` and `BatchTransfer` events. These can be defined as transfers where the operator, sender and receiver are not a Polymarket contract address. The pricing is 0, since there is no USD transfer involved.
 
@@ -74,12 +75,18 @@ With all these events:
 * Converts
 * Stray Transfers
 
-you can aggregate to get the balances of the shares. 
+you can aggregate to get the balances of the shares. then you can use `settlement_value` from the market_details table to calculate the profit on resolution.
+a trader invests USD by: 
+1. Swapping USD for a position
+2. Depositing USD to mint shares (Split)
 
-## Whats still missing:
+a trader realizes USD by:
+1. Swapping shares for USD
+2. Withdrawing USD by redeeming shares (Merge)
+3. USD received on resolution
+4. USD received on conversion
 
-- [x] Convert USD - capture from number of NOs sold - 1 * amount of NO sold
-- [x] 50/50 Resolutions and other kinds of resolutions 
+Performing a aggregation of USD gives us the USD value of the shares held by a wallet.
 
 ## Refs
 
