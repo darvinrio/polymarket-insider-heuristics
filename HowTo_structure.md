@@ -3,12 +3,21 @@
 2. Dataset objective
 3. Why API snapshots and CLOB-only PnL are insufficient
 4. The unified accounting model
-5. Reconstructing CLOB trades from OrderFilled events
-   5.1 Full orders versus maker-taker fills
-   5.2 Why maker-side events are retained
-   5.3 Identifying swap, split, and merge fills
-   5.4 Reconstructing the missing taker-side information
-   5.5 Validation against full-order volume
+5. Reconstructing CLOB Trades
+    1. Full orders versus maker-taker fills - Why full-order events are insufficient
+    2. Why maker-side events are retained - Individual maker-taker fills and double counting
+    3. Identifying swap, split, and merge fills - The three CLOB trade structures
+      - Swap
+      - Split
+      - Merge
+    > Important: CLOB split/merge trades are distinct from standalone
+    > PositionSplit and PositionsMerge operations.
+    4. Reconstructing the complementary/taker-side asset
+    5. Normalizing fills into share and USD deltas
+    6. Validation against full-order volume
+    7. Optional fill-level features
+      - Taker execution price
+      - Price range / spread
 6. Non-CLOB position changes
    6.1 Standalone splits
    6.2 Standalone merges
