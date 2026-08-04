@@ -70,8 +70,48 @@ This on the other hand, would help us solve the problem of what all could be pos
 
 This is a section, that can be skipped if your only concern is to recreate Resolution balances. If you are however interested in understanding fill events, and what the onchain doesn't tell you about the Fills, this section is for you.
 
-Storm Slivkoff discovered in [Polymarket Volume Is Being Double-Counted](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted) that a single market order trigger multiple `OrderFilled` events: one for each individual maker fill, and a single final `OrderFilled` event that summarizes all the fills.
+Storm Slivkoff discovered in [Polymarket Volume Is Being Double-Counted](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted) that a single market order trigger multiple `OrderFilled` events: one for each individual maker fill, and a single final `OrderFilled` event that summarizes all the fills. Lets call this final `OrderFilled` event as **FullOrder**. Analysts before that naively aggregated events, thus double-counting the volume.
+The standard `OrderFilled` event follows the following structure:
+```solidity
+OrderFilled (
+  index_topic_1 bytes32 orderHash,
+  index_topic_2 address maker,
+  index_topic_3 address taker,
+  uint256 makerAssetId,
+  uint256 takerAssetId,
+  uint256 makerAmountFilled,
+  uint256 takerAmountFilled,
+  uint256 fee
+)
+```
+The individual fills correctly post the makers and takers onchain. The final `OrderFilled` event however, posts the taker wallet as the maker, and the maker is the Polymarket Market contract. This key distinction can be used to efficiently distinguist between individual fills and summary fill. This is the common pre-processing step to filter trades to avoid double counting volume.
 
+The article by Slivkoff also explains the 3 different types of CLOB trades:
+- **Swap**:  A standard exchange of YES/NO tokens between the maker and taker, in exchange for USD.
+- **Split**: A taker and maker jointly deposit USD, and receive same amount of YES/NO tokens respectively.
+- **Merge**: A taker and maker jointly deposit same amount of YES/NO tokens, and receive USD.
+
+
+![OrderMatching](imgs/contract_control_flow.png)
+
+[TODO: improve wording here, and confirm what I say about the article]
+However, the article itself doesn't delve deeper into finer details beyond that. Lets check a specific fill event. 
+
+[TODO: add sample transaction to show how usd and price don't match, and how the order fill only logs maker perspective]
+
+We find that `OrderFilled` event always contain one asset tokenID and the other is always the collateral, i.e USD.
+We also find that the `OrderFilled` events emit info from the maker's perspective, i.e the asset tokenID, usd amount and shares logged are the maker's side of the transaction. This is problematic when we deal with a **Split** or **Merge** trade, as the maker's asset tokenID is opposite to the taker's. While the shares remain constant, since equal amounts are required for Collateral movement, the USD amount logged is different. This is why the sum of USD logged in the individual fills do not match the USD logged in the final **FullOrder** `OrderFilled` event.
+
+To fix these issues (remember only for **Split** and **Merge** trades), we can get the taker's token ID from the full order `OrderFilled` event associated with the transaction, and the taker's price is computed as $(1 - p_{maker})$ (since YES and NO are complementary tokens, the sum is 1 USD). 
+Since the shares remain constant, the USD volume of the taker's fill can be computed as:
+
+$$
+\text{USD volume} = \text{shares} \times (1 - p_{maker})
+$$ 
+
+We can sanity check this formula to verify our Split and Merge labelling by comparing the aggregate sum of maker USD volume for fill orders with the aggregate sum of taker USD volume for full orders.
+
+Now, our new CLOB contains the information of both the maker and taker side of the fill. Great. Now from this we can build features like fill spread crossed, median execution price.
 
 ## Objective of the Dataset
 
