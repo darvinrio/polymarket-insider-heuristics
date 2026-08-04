@@ -180,11 +180,12 @@ We need to
   2. Standalone Splits and Merges
   3. NegRisk Converts
   4. Standalone Transfers
+3. We need exactly one row per tokenID moved.
 
 ### CLOB Trades
 
 In the Reconstructing CLOB trades section, we computed the taker side of CLOB trades. However, for Legder events, we only need maker side. This is because, the **FullOrder** trade captures the taker side delta as maker.
-On the basis of this assumption, we can simply get the Token ID, Share delta and USD delta from the CLOB trades dataset. The pricing is also straightforward as $P = usd/shares$
+On the basis of this assumption, we can simply get the Token ID, Share delta and USD delta from the CLOB trades dataset. The USD delta and share delta are negative, if the trade is a Sell, positive otherwise. The pricing is also straightforward as $P = usd/shares$
 
 ### Standalone Splits
 
@@ -193,6 +194,8 @@ $$
 $$ 
 
 Standalone splits are detected by `PositionSplit` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is that, `PositionSplit` associated with `OrderFilled` are already accounted for in the CLOB trades, hence we avoid them to avoid double-counting. The wallet associated with the split is detected by the adjacent `BatchTransfer` event, that transfers all the YES + NO token pairs associated with that market. In the `BatchTransfer` event, the trading wallet is the recipient of the split tokens. Based on heuristics, the adjacent `BatchTransfer` event is always emitted right before or right after the `PositionSplit` event, i.e if `i` is the index of the `PositionSplit` event, then `i-1` or `i+1` is the index of the adjacent `BatchTransfer` event.
+
+Since pricing involves USD to Token conversion, USD delta is negative, and Token delta is positive.
 
 #### Pricing the trade
 
@@ -212,6 +215,8 @@ $$
 
 Standalone merges are detected by `PositionMerge` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is the same as for standalone splits. Similar to standalone splits, the `BatchTransfer` event is used to detect the trading wallet associated with the merge, and the trading wallet is the sender of the merging tokens. Based on heuristics, the `BatchTransfer` event is always emitted 2 events before the `PositionMerge` event, i.e if `i` is the `PositionMerge` event index, then `i - 2` is the `BatchTransfer` event index. Similar to standalone splits, we can price the assets as 0.5 USD per token.
 
+The USD and share delta's are opposite to that of standalone splits, i.e USD delta is positive and share delta is negative.
+
 ### NegRisk Converts
 
 The event structure is a bit tricky. 
@@ -227,18 +232,61 @@ Because the `PositionConverted` event itself doesn't log the correct token IDs t
 For the `YES` minting leg, we use the `BatchTransfer` event that is right before to the `PositionConverted` event, i.e if `i` is the `PositionConverted` event index, then `i-1` is the `YES` `BatchTransfer` event index.
 For the `NO` burning leg, based on the figure above, the `BatchTransfer` is always between `i-3` and `i-6`, if `i` is the index of the `PositionConverted` event. This event offset is fee-schedule-dependent. Fig above shows the offset shifts under the "Both Fee & Collateral" and "No Collateral" configurations. An interesting take away is that, we can determine the type of convert, based on the difference between indexes of the `PositionConverted` and `BatchTransfer` events.
 
+[TODO: improve readability and wording]
+The USD and share deltas are as follows:
+- USD delta is postive for `NO` burning leg. Since for `n` NO positions burned, we receive `n-1` NO positions worth USD, the USD value of each NO position is `(n-1) * shares / n` USD.
+- The shares delta is negative for `NO` burning leg. The shares amount remains same as `shares`
+- The shares delta is positive for `YES` minting leg and the shares amount remains same as `shares`
+- The USD delta is 0 for the `YES` minting leg.
+
 We already know that the USD received by the trader is equivalent of `n-1` NO positions for `n` NO positions burned. Thus we can price the `NO` positions as `(n-1) / n` USD per token. The `YES` positions are priced as `0`. 
-[TODO: `YES` pricing in convert seems sus, since 0 priced position seems like a disaster]
+[TODO: `YES` pricing in convert seems sus, since 0 priced position seems like a disaster waiting to happen]
 
 ### Standalone Transfers
 
-### Summary of Pricing Logic
+Standalone transfers are transfers that do not involve any Polymarket contract. A `SingleTransfer` or `BatchTransfer` has 3 wallet fields: `from`, `to`, and `operator`. None of these fields must be a Polymarket contract address.
 
-| Event | USD logic | Why |
-|---|---|---|
-| CLOB Trade | `usd / shares` | CLOB trades involve USD trade for Shares |
-| Split | `shares × 0.5` | $1 of collateral mints 1 YES + 1 NO — priced at parity |
-| Merge | `shares × 0.5` | 1 YES + 1 NO burns for $1 of collateral — same parity |
-| Convert (NO burn leg) | `(n − 1) × shares / n` | Of `n` NO tokens burned, `n − 1` convert straight to USD |
-| Convert (YES mint leg) | `$0` | The 1 remaining unit converts to YES "for free" — the USD value already realized on the burn leg |
-| Stray transfer | `$0` | No USD changes hands; pure share movement between wallets |
+We also do not establish a monetary value for standalone transfers. This is once again a naive assumption, but this simplest way to price them. 
+In the real world, these transfers could have economic value based on offchain payments, OTC agreement.
+The ideal way to price these transfers would be to use the price of the token at the time of transfer.
+
+### Summary of Pricing, Share Delta and USD Delta Logic
+
+| Event | USD logic | Share Logic | Pricing Logic | Why | 
+|---|---|---|---|---|
+| CLOB Trade | `$ -usd` if buy, `$ +usd` if sell | `-shares` if buy, `+shares` if sell | `usd / shares` | CLOB trades involve USD trade for Shares |
+| Split | `$ -usd` | `shares` | $1 of collateral mints 1 YES + 1 NO — priced at parity |
+| Merge | `$ +usd` | `-shares` | 1 YES + 1 NO burns for $1 of collateral — same parity |
+| Convert (NO burn leg) | `$ (n-1) x shares` | `-shares` | `(n − 1) × shares / n` | Of `n` NO tokens burned, `n − 1` convert straight to USD |
+| Convert (YES mint leg) | `$0` | `shares` | `$0` | The 1 remaining unit converts to YES "for free" — the USD value already realized on the burn leg |
+| Stray transfer | `$0`  | `-shares` if sender, `+shares` if receiver | `$0` | No USD changes hands; pure share movement between wallets |
+
+### Assembling it all together
+
+We union them all together to get the unified ledger. We can then compute the running share balance and different USD flows. Finally we can compute the USD invested and USD realized. We can use the `settlement_value` from market details to compute the resolution profit. The Final PnL is USD on resolution plus USD realized minus USD invested.
+
+In the SQL query it looks like:
+
+```md
+CLOB maker-taker fills
+            +
+Standalone splits
+            +
+Standalone merges
+            +
+Negative Risk conversions
+            +
+External ERC-1155 transfers
+            +
+Settlement and redemption
+            ↓
+Unified event-level ledger
+            ↓
+Running share balances
+            +
+Cumulative USD flows
+            ↓
+Position settlement value
+            ↓
+Resolution PnL
+```
