@@ -146,14 +146,6 @@ Both of these affect PnL strongly, introducing negative PnL from negative balanc
 This is a special feature of NegRisk Markets. If you are all the way here, and do not know what a NegRisk market is - Its a efficient way ot bundling markets with mutually exclusive outcomes together. A presidential election market is a good example, as they can be 10 candidates. Instead of 10 different markets, we have a single market. 
 A key feature of these markets is that, if there are `n` different outcomes, then `1` resolves to `YES` and `n-1` resolves to `NO`. An extension of this is that, if anyone holds more than 1 `NO` tokens, they are guaranteed to resolve all but one `NO` tokens. Due to this, Polymarket allows anyone to convert `n` `NO` positions to USD worth `n-1` `NO` positions by using the `convertPositions` function.
 
-The event structure is a bit tricky. 
-![Convert Event Emissions](imgs/conv.png)
-
-There are 3 legs for this trade:
-1. Trader burns their `NO` tokens
-2. Trader may or maynot receive `Collateral` tokens
-3. Trader receives `YES` tokens.
-
 ### External ERC-1155 transfers
 
 At the end of the day Polymarket positions are ERC-1155 tokens, that the holder fully controls, and hence can transfer it on their own volition. This means, certain users try to transfer positions to other accounts. These must be also factored. These can be performed via both `SingleTransfer` and `BatchTransfer` events.
@@ -188,3 +180,65 @@ We need to
   2. Standalone Splits and Merges
   3. NegRisk Converts
   4. Standalone Transfers
+
+### CLOB Trades
+
+In the Reconstructing CLOB trades section, we computed the taker side of CLOB trades. However, for Legder events, we only need maker side. This is because, the **FullOrder** trade captures the taker side delta as maker.
+On the basis of this assumption, we can simply get the Token ID, Share delta and USD delta from the CLOB trades dataset. The pricing is also straightforward as $P = usd/shares$
+
+### Standalone Splits
+
+$$
+1 \text{USD} = 1 \text{YES} \plus 1 \text{NO}
+$$ 
+
+Standalone splits are detected by `PositionSplit` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is that, `PositionSplit` associated with `OrderFilled` are already accounted for in the CLOB trades, hence we avoid them to avoid double-counting. The wallet associated with the split is detected by the adjacent `BatchTransfer` event, that transfers all the YES + NO token pairs associated with that market. In the `BatchTransfer` event, the trading wallet is the recipient of the split tokens. Based on heuristics, the adjacent `BatchTransfer` event is always emitted right before or right after the `PositionSplit` event, i.e if `i` is the index of the `PositionSplit` event, then `i-1` or `i+1` is the index of the adjacent `BatchTransfer` event.
+
+#### Pricing the trade
+
+Since equal amount of YES and NO tokens are minted, we can price the assets as 0.5 USD per token. This is a rather naive pricing logic. The correct pricing logic would require us to match the 2nd leg of the trade, and price the assets based on the USD value of the 2nd leg. However, the existence of this 2nd leg is not always guaranteed. 
+
+eg:
+say a trader want to gain a position of 10 YES tokens. They deposit 10 USD and mint 10 YES tokens + 10 NO tokens. The 2nd leg of the trade would be to sell the 10 NO tokens on the market. If they sell the 10 NO tokens at a price of 0.1 USD per token, their recuperation is 1 USD (10 NO tokens * 0.1 USD per token). Thus the effective cost of the 10 YES position is 0.9 USD.
+
+[TODO: better wording, or fix the naive approach]
+Our naive approach, manages to match the expected pricing, but offsets the effective cost of YES tokens to the NO tokens. Instead of a single 9 USD for 10 YES tokens, we get a 5 USD for 10 YES tokens and a 5 USD for NO tokens sold on the market for 1 USD. Instead of a 9 USD YES position, we get two positions.
+
+### Standalone Merges
+
+$$
+1 \text{YES} \plus 1 \text{NO} = 1 \text{USD}
+$$
+
+Standalone merges are detected by `PositionMerge` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is the same as for standalone splits. Similar to standalone splits, the `BatchTransfer` event is used to detect the trading wallet associated with the merge, and the trading wallet is the sender of the merging tokens. Based on heuristics, the `BatchTransfer` event is always emitted 2 events before the `PositionMerge` event, i.e if `i` is the `PositionMerge` event index, then `i - 2` is the `BatchTransfer` event index. Similar to standalone splits, we can price the assets as 0.5 USD per token.
+
+### NegRisk Converts
+
+The event structure is a bit tricky. 
+![Convert Event Emissions](imgs/conv.png)
+*Fig. 2 — `convertPositions` flow. The right-hand table shows event offsets relative to the terminal `PositionsConverted` event (`i`) across four fee/collateral configurations. For the no-fee, v1 case used here: the trader's NO burn (`BatchTransfer`) falls between `i-3` and `i-6`; the YES mint to the trader is always at `i-1`.*
+
+There are 3 legs for this trade:
+1. Trader burns their `NO` tokens
+2. Trader may or maynot receive `Collateral` tokens
+3. Trader receives `YES` tokens.
+
+Because the `PositionConverted` event itself doesn't log the correct token IDs that were converted, we use adjacent `BatchTransfer` to determine the tokenIDs. 
+For the `YES` minting leg, we use the `BatchTransfer` event that is right before to the `PositionConverted` event, i.e if `i` is the `PositionConverted` event index, then `i-1` is the `YES` `BatchTransfer` event index.
+For the `NO` burning leg, based on the figure above, the `BatchTransfer` is always between `i-3` and `i-6`, if `i` is the index of the `PositionConverted` event. This event offset is fee-schedule-dependent. Fig above shows the offset shifts under the "Both Fee & Collateral" and "No Collateral" configurations. An interesting take away is that, we can determine the type of convert, based on the difference between indexes of the `PositionConverted` and `BatchTransfer` events.
+
+We already know that the USD received by the trader is equivalent of `n-1` NO positions for `n` NO positions burned. Thus we can price the `NO` positions as `(n-1) / n` USD per token. The `YES` positions are priced as `0`. 
+[TODO: `YES` pricing in convert seems sus, since 0 priced position seems like a disaster]
+
+### Standalone Transfers
+
+### Summary of Pricing Logic
+
+| Event | USD logic | Why |
+|---|---|---|
+| CLOB Trade | `usd / shares` | CLOB trades involve USD trade for Shares |
+| Split | `shares × 0.5` | $1 of collateral mints 1 YES + 1 NO — priced at parity |
+| Merge | `shares × 0.5` | 1 YES + 1 NO burns for $1 of collateral — same parity |
+| Convert (NO burn leg) | `(n − 1) × shares / n` | Of `n` NO tokens burned, `n − 1` convert straight to USD |
+| Convert (YES mint leg) | `$0` | The 1 remaining unit converts to YES "for free" — the USD value already realized on the burn leg |
+| Stray transfer | `$0` | No USD changes hands; pure share movement between wallets |
