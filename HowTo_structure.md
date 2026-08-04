@@ -19,10 +19,10 @@
       - Taker execution price
       - Price range / spread
 6. Non-CLOB position changes
-   6.1 Standalone splits
-   6.2 Standalone merges
-   6.3 NegRisk conversions
-   6.4 External ERC-1155 transfers
+   1. Standalone splits
+   2. Standalone merges
+   3. NegRisk conversions
+   4. External ERC-1155 transfers
 7. Unified event ledger
 8. Validation
 9. Limitations
