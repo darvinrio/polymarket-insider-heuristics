@@ -1,7 +1,7 @@
 ## ChatGPT
-1. Introduction
+1. ~~Introduction~~
 2. Dataset objective
-3. Why API snapshots and CLOB-only PnL are insufficient
+3. ~~Why API snapshots~~ and CLOB-only PnL are insufficient
 4. The unified accounting model
 5. Reconstructing CLOB Trades
     1. Full orders versus maker-taker fills - Why full-order events are insufficient
@@ -28,9 +28,9 @@
 9. Limitations
 
 ## Claude
-1. Motivation — insider-trading framework, need for PnL (keep, tighten)
+1. ~~Motivation — insider-trading framework, need for PnL (keep, tighten)~~
 2. What "Resolution" means here — one clear definition
-3. Why the obvious sources fail — turn your one-line API dismissal into a short table: endpoint → what it gives → what it's missing (snapshot-only, no cost basis, no spread, etc.)
+3. ~~Why the obvious sources fail — turn your one-line API dismissal into a short table: endpoint → what it gives → what it's missing (snapshot-only, no cost basis, no spread, etc.)~~
 4. The naive on-chain methodology and its two failure modes
     * double counting (cite Slivikoff, maker-only fix)
     * negative balances (the give-away that something's structurally missing)
