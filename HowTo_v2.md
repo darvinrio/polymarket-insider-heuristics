@@ -113,7 +113,54 @@ We can sanity check this formula to verify our Split and Merge labelling by comp
 
 Now, our new CLOB contains the information of both the maker and taker side of the fill. Great. Now from this we can build features like fill spread crossed, median execution price.
 
-## Objective of the Dataset
+## Non CLOB Position Changes.
+
+### Splits and Merges
+This is our answer to how `0xce296aaf92ecc022cc6608a54c622bb1c445b71b` sold YES without buying them on CLOB. This also points out why the trade itself was missing context.
+
+We already slightly explored what potentially was missing. Splits and Merges. Turns out, not only the CLOB matching engine, but also traders themselves can execute Splits and Merges.
+A trader can deposit Collateral into a market - minting YES/NO pairs. Then the trader can sell the NO or YES into the market to get a complementary position. This is a non-CLOB Split.
+The opposite is also true: where a trader can buy a position, pair it with complementary position in their balances to withdraw collateral. This is a non-CLOB Merge.
+
+Looking back at the `0xce296aaf92ecc022cc6608a54c622bb1c445b71b` `Will Gemini 3.0 be released on November 17 2025?` market example, here is how the actual swap looks like [TODO : fix table]: 
+
+| Timestamp           | Shares | Token Side | Direction | Shares Delta | Shares Cumulative | Flag | Token Price | USD Volume | Tx Link |  
+| ------------------- | ------ | ---------- | --------- | ------------ | ----------------- | ---- | ---- | ---- | ----    |
+| 2025-11-14 19:45:32 | 362.10 | NO         | BUY       | 362.10       | 362.10            | ✅   | 0.952 |	344.92 | [🔗](https://polygonscan.com/tx/0xb5c4db10463d7a05665e06794afe8400868baab79731296c0581df491ac5708a#eventlog) | 
+| 2025-11-15 02:53:26 | 100    | NO         | SELL      | -100         | 262.10            | ✅   | 0.962 |	96.20 | [🔗](https://polygonscan.com/tx/0xc992ae2be4d33a2846dfcce465085ada3b9579f8e163281d00b7e25b18c6e0e3#eventlog) | 
+| 2025-11-15 02:53:40 | 100    | NO         | SELL      | -100         | 162.10            | ✅   | 0.962 |	96.20 | [🔗](https://polygonscan.com/tx/0x4b67a585377cedcb7bc33f64dda9f72329d12c586365244c9ea53fc9f9a99b51#eventlog) | 
+| 2025-11-15 02:56:36 | 162.1  | NO         | SELL      | -162.1       | 0.00              | ✅   | 0.954 |	154.64 | [🔗](https://polygonscan.com/tx/0x8c274aaeecacabd2f5e8d16de0c7cc1590035f6e5a4d5937308068f5a0727796#eventlog) | 
+| 2025-11-15 03:29:28 | 100    | YES        | SELL      | -100         | -100              | 🚩   | 0.030	| 3.00 | [🔗](https://polygonscan.com/tx/0x76e3dc9817333f189a3526485a1538c0ddc33f74ace05e144036ae8a2b37af13#eventlog) | 
+| 2025-11-15 03:32:04 | 250    | YES        | SELL      | -250         | -350              | 🚩   | 0.030 |	7.50 | [🔗](https://polygonscan.com/tx/0x42424044aed3d4bc83ab792bab84cf890d40a694fb7584df30810b7cfaea02d4#eventlog) | 
+
+
+Its obvious how quickly these non-CLOB changes can degrade your dataset. 
+1. Negative balances or Ghost sales - Where a trader seems to sell a position which they didnt own.
+2. Zero Balances post buying - Where a trader just executed a buy, but their position exposure is zero, without a single sale.
+3. Merges involve withdrawing collateral - hence a increase in PnL is missed
+4. Splits involve depositing collateral - hence a decrease in PnL is missed
+Both of these affect PnL strongly, introducing negative PnL from negative balances, and postive PnL from Zero balances.
+
+### Conversion
+
+This is a special feature of NegRisk Markets. If you are all the way here, and do not know what a NegRisk market is - Its a efficient way ot bundling markets with mutually exclusive outcomes together. A presidential election market is a good example, as they can be 10 candidates. Instead of 10 different markets, we have a single market. 
+A key feature of these markets is that, if there are `n` different outcomes, then `1` resolves to `YES` and `n-1` resolves to `NO`. An extension of this is that, if anyone holds more than 1 `NO` tokens, they are guaranteed to resolve all but one `NO` tokens. Due to this, Polymarket allows anyone to convert `n` `NO` positions to USD worth `n-1` `NO` positions by using the `convertPositions` function.
+
+The event structure is a bit tricky. 
+![Convert Event Emissions](imgs/conv.png)
+
+There are 3 legs for this trade:
+1. Trader burns their `NO` tokens
+2. Trader may or maynot receive `Collateral` tokens
+3. Trader receives `YES` tokens.
+
+### External ERC-1155 transfers
+
+At the end of the day Polymarket positions are ERC-1155 tokens, that the holder fully controls, and hence can transfer it on their own volition. This means, certain users try to transfer positions to other accounts. These must be also factored. These can be performed via both `SingleTransfer` and `BatchTransfer` events.
+
+## Assembling the Ledger Dataset
+
+### Objective of the Dataset
 
 Our ledger dataset should be of the following structure:
 
@@ -130,3 +177,14 @@ Our ledger dataset should be of the following structure:
 | Block time       | Timestamp of the event                       |
 
 Our main north star should be that at all points, the running sum of all share deltas must be non-negative.
+
+We need to 
+1. Unify the structure of the events:
+  1. Find the correct trader wallet
+  2. Calculate the correct share delta
+  3. Price the asset and Calculate the correct USD delta
+2. Bring together all the components of the ledger
+  1. CLOB trades
+  2. Standalone Splits and Merges
+  3. NegRisk Converts
+  4. Standalone Transfers
