@@ -28,23 +28,23 @@ short_list_markets as (
         from_hex(condition_id) as condition_id,
         tags,
         neg_risk,
-        from_iso8601_timestamp(market_start_time) as market_start_time,
-        from_iso8601_timestamp(market_end_time) as market_end_time,
+        market_start_time,
+        market_end_time,
         resolved_on_timestamp,
         least(
             resolved_on_timestamp,
-            from_iso8601_timestamp(market_end_time)
+            market_end_time
         ) as orders_end_time,
         outcome as final_outcome,
         token_outcome,
         settlement_value
     from polymarket_polygon.market_details
     where true
-        and from_iso8601_timestamp(market_start_time) > date'2025-10-01'
+        and market_start_time > date'2025-10-01'
         and resolved_on_timestamp < date'2026-04-28'
         -- and resolved_on_timestamp < date'2025-12-01'
         and cardinality(array_intersect(
-            split(tags, ', '),
+            tags,
             [
                 'Crypto Prices', 'Up or Down',
                 'Esports', 'Recurring',
@@ -152,7 +152,7 @@ trades_level_4 as (
         resolved_on_timestamp,
         final_outcome,
         settlement_value,
-        neg_risk,
+        cast(neg_risk as boolean) as neg_risk,
         shares,
         builder,
         metadata,
@@ -172,17 +172,18 @@ trades_level_4 as (
         taker_usd,
         max_taker_price,
         min_taker_price,
-        round(max_taker_price-min_taker_price, 6) as spread,
-        case when taker_price > 0.95
-            and lower(final_outcome) = lower(taker_token_outcome)
-            and date_diff('hour', block_time, orders_end_time) <= 24
-        then True
-        else False end as is_yield_farm_trade,
-        case when taker_price < 0.05
-            and lower(final_outcome) != lower(taker_token_outcome)
-            and date_diff('hour', block_time, orders_end_time) <= 24
-        then True
-        else False end as is_notional_farm_trade
+        round(max_taker_price-min_taker_price, 6) as spread
+        -- This is redundant and incorrect
+        -- case when taker_price > 0.95
+        --     and lower(final_outcome) = lower(taker_token_outcome)
+        --     and date_diff('hour', block_time, orders_end_time) <= 24
+        -- then True
+        -- else False end as is_yield_farm_trade,
+        -- case when taker_price < 0.05
+        --     and lower(final_outcome) != lower(taker_token_outcome)
+        --     and date_diff('hour', block_time, orders_end_time) <= 24
+        -- then True
+        -- else False end as is_notional_farm_trade
     from trades_level_3
 ),
 batch_transfers as (
@@ -765,14 +766,15 @@ where true
 -- and trader in (select maker from short_list_wallets)
 -- and trader = 0x84571f1bf97a5c710cbe51daff2dd4556cc887fd
 -- -- and neg_risk = 'False'
+-- and trader = 0xC4D5a24a240eC9f52669e3251E0473FD0c5687cf
 -- and trader = 0xee50a31c3f5a7c77824b12a941a54388a2827ed6
 -- and trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- and trader = 0xd058d668771b6f4d0f8ee4c345089e369d98c532
-and trader = 0xce296aaf92ecc022cc6608a54c622bb1c445b71b
+-- and trader = 0xce296aaf92ecc022cc6608a54c622bb1c445b71b
 -- and condition_id = 0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9
 and trader not in (select wallet from filter_wallets)
 -- order by total_shares desc
--- limit 10
+limit 10
 
 -- select * from audit_txs
 -- where trader = 0xC4D5a24a240eC9f52669e3251E0473FD0c5687cf
@@ -811,6 +813,7 @@ and trader not in (select wallet from filter_wallets)
 -- where trader = 0x0c4b64af62a0ac3dd477e9f80ec3eaa18e92f6db
 -- and token_id = uint256'80172139326701765108593354605737918733332031006149436614549251803199576580256'
 -- order by block_time, evt_index
+-- limit 10
 -- -- 0x793e67beddb49b1c4ea8819c74644056a5d8baef
 -- 17729640410767428830891271907670356081389789554536307716651081291770350315708
 -- 0x97f7e9d839a3d94158c16ae7a1ccfd494a66ff980131ad0fc87bc98b7b1dc1c1
