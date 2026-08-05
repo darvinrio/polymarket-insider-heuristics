@@ -52,8 +52,6 @@ short_list_markets as (
                 'Tweet Markets'
             ]
         )) = 0
-        -- ensure that outcome of token matches final outcome
-        -- and lower(token_outcome) = lower(outcome)
 ),
 trades_level_1 as (
     select
@@ -91,7 +89,6 @@ trades_level_1 as (
         and block_month <= date'2026-05-01'
         -- and block_month < date'2025-12-01'
         and contract_version = 'v1'
-        and t.condition_id in (select condition_id from short_list_markets)
         -- and t.maker in (select maker from short_list_wallets)
 ),
 trades_level_2 as (
@@ -211,7 +208,7 @@ batch_transfers as (
         s.settlement_value
     from polymarket_polygon.ctf_evt_transferbatch b
         cross join unnest(b.ids, b."values") as u(token_id, shares_raw)
-        left join short_list_markets s
+        join short_list_markets s
             on u.token_id = s.token_id
     where true
     and evt_block_date >= date'2025-10-01'
@@ -228,11 +225,6 @@ batch_transfers as (
         -- merge -> burn
         "to" = 0x0000000000000000000000000000000000000000
     )
-    -- filter out
-    and u.token_id in (select token_id from short_list_markets)
-    -- and b.ids[1] in (select token_id from short_list_markets)
-    -- and b.evt_tx_hash not in (select tx_hash from trades_level_1)
-    -- trader filter
     -- and (
     --     "from" in (select maker from short_list_wallets)
     --     or
@@ -267,11 +259,6 @@ stray_batch_transfers as (
     and operator not in (select wallet from filter_wallets)
     and sender not in (select wallet from filter_wallets)
     and recipient not in (select wallet from filter_wallets)
-    -- filter out
-    and token_id in (select token_id from short_list_markets)
-    -- and b.ids[1] in (select token_id from short_list_markets)
-    -- and evt_tx_hash not in (select tx_hash from trades_level_1)
-    -- trader filter
     -- and (
     --     sender in (select maker from short_list_wallets)
     --     or
@@ -302,7 +289,7 @@ single_transfers as (
         s.orders_end_time,
         s.settlement_value
     from polymarket_polygon.ctf_evt_transfersingle b
-        left join short_list_markets s
+        join short_list_markets s
             on b.id = s.token_id
     where true
     and evt_block_date >= date'2025-10-01'
@@ -311,11 +298,6 @@ single_transfers as (
     and operator not in (select wallet from filter_wallets)
     and "to" not in (select wallet from filter_wallets)
     and "from" not in (select wallet from filter_wallets)
-    -- filter out
-    and b.id in (select token_id from short_list_markets)
-    -- and b.ids[1] in (select token_id from short_list_markets)
-    -- and b.evt_tx_hash not in (select tx_hash from trades_level_1)
-    -- trader filter
     -- and (
     --     "from" in (select maker from short_list_wallets)
     --     or
@@ -357,16 +339,10 @@ splits as (
                 or
                 p.evt_index - 1 = b.evt_index
             )
-        -- join short_list_markets s
-        --     on p.conditionId = s.condition_id
-        -- join trades t
-        --     on p.evt_tx_hash != t.tx_hash
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
     -- and evt_block_date < date'2025-12-01'
-    and p.conditionId in (select condition_id from short_list_markets)
-    -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
 ),
 merges as (
@@ -395,16 +371,10 @@ merges as (
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
             and p.evt_index = b.evt_index + 2
-        -- join short_list_markets s
-        --     on p.conditionId = s.condition_id
-        -- join trades t
-        --     on p.evt_tx_hash != t.tx_hash
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
     -- and evt_block_date < date'2025-12-01'
-    and p.conditionId in (select condition_id from short_list_markets)
-    -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
 ),
 converts_to_yes as (
@@ -437,16 +407,10 @@ converts_to_yes as (
             and p.evt_index = b.evt_index + 1
             -- and b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296 -- not necessary imo
             and b.recipient = p.stakeholder
-        -- join short_list_markets s
-        --     on p.conditionId = s.condition_id
-        -- join trades t
-        --     on p.evt_tx_hash != t.tx_hash
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
     -- and evt_block_date < date'2025-12-01'
-    -- and p.conditionId in (select condition_id from short_list_markets)
-    -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.recipient in (select maker from short_list_wallets)
 ),
 converts_from_no as (
@@ -483,16 +447,10 @@ converts_from_no as (
             and p.evt_index <= b.evt_index + 4
             and p.evt_index > b.evt_index
             -- v1 has no fees, so lets ignore fee colat and fee yes
-        -- join short_list_markets s
-        --     on p.conditionId = s.condition_id
-        -- join trades t
-        --     on p.evt_tx_hash != t.tx_hash
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
     -- and evt_block_date < date'2025-12-01'
-    -- and p.conditionId in (select condition_id from short_list_markets)
-    -- and p.evt_tx_hash not in (select tx_hash from trades_level_1)
     -- and b.sender in (select maker from short_list_wallets)
 ),
 converts as (
@@ -554,8 +512,6 @@ trade_deltas as (
         end as usd_realized
     from trades_level_4
     where true
-    -- only trades that resolve in direction of trader are worth
-    -- and lower(maker_token_outcome) = lower(final_outcome)
 ),
 merges_splits_converts as (
     select
