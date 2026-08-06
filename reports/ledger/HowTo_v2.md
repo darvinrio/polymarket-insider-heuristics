@@ -56,7 +56,6 @@ You can see how the 5th transaction sells YES token, that the user never bought.
 
 Some approaches attempt to sidestep this by including wallets whose books will close cleanly using CLOB trades alone, i.e balances are non-negative. This is an approach that doesn't explain or explore the consequences of this missed section.
 
-[TODO: STRUCTURE THIS BETTER]
 A bigger issue with this methodology is that, the methodology doesn't understand the trade being placed, and the larger context behind the trade. To a new analyst, it looks like the user is selling YES tokens, but in reality, this trade was a 2nd leg of a trade where they were increasing their NO position. 
 A slightly vague tell is, if you look at the above example, you might notice that that the trader buys NO around 95 cents and sells NO around 96 cents. This is a known yield farming strategy on Polymarket, where wallets buy tokens close to resolution to take advantage of the last bit of price movement, which is highly likely to close at 1 dollar. This wallet in particular has been making such trades quite frequently, thus the low price selling is very odd.
 
@@ -209,7 +208,7 @@ $$
 1 \text{USD} = 1 \text{YES} + 1 \text{NO}
 $$ 
 
-Standalone splits are detected by `PositionSplit` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is that, `PositionSplit` associated with `OrderFilled` are already accounted for in the CLOB trades, hence we avoid them to avoid double-counting. The wallet associated with the split is detected by the adjacent `BatchTransfer` event, that transfers all the YES + NO token pairs associated with that market. In the `BatchTransfer` event, the trading wallet is the recipient of the split tokens. Based on heuristics, the adjacent `BatchTransfer` event is always emitted right before or right after the `PositionSplit` event, i.e if `i` is the index of the `PositionSplit` event, then `i-1` or `i+1` is the index of the adjacent `BatchTransfer` event.
+Standalone splits are detected by `PositionSplit` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is that, `PositionSplit` associated with `OrderFilled` are already accounted for in the CLOB trades, hence we avoid them to avoid double-counting. The wallet associated with the split is detected by the adjacent `BatchTransfer` event, that transfers all the YES + NO token pairs associated with that market. In the `BatchTransfer` event, the trading wallet is the recipient of the split tokens. Based on protocol source code, the adjacent `BatchTransfer` event is always emitted right before or right after the `PositionSplit` event, i.e if `i` is the index of the `PositionSplit` event, then `i-1` or `i+1` is the index of the adjacent `BatchTransfer` event.
 
 Since pricing involves USD to Token conversion, USD delta is negative, and Token delta is positive.
 
@@ -235,7 +234,7 @@ $$
 1 \text{YES} + 1 \text{NO} = 1 \text{USD}
 $$
 
-Standalone merges are detected by `PositionMerge` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is the same as for standalone splits. Similar to standalone splits, the `BatchTransfer` event is used to detect the trading wallet associated with the merge, and the trading wallet is the sender of the merging tokens. Based on heuristics, the `BatchTransfer` event is always emitted 2 events before the `PositionMerge` event, i.e if `i` is the `PositionMerge` event index, then `i - 2` is the `BatchTransfer` event index. Similar to standalone splits, we can price the assets as 0.5 USD per token.
+Standalone merges are detected by `PositionMerge` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is the same as for standalone splits. Similar to standalone splits, the `BatchTransfer` event is used to detect the trading wallet associated with the merge, and the trading wallet is the sender of the merging tokens. Based on protocol source code, the `BatchTransfer` event is always emitted 2 events before the `PositionMerge` event, i.e if `i` is the `PositionMerge` event index, then `i - 2` is the `BatchTransfer` event index. Similar to standalone splits, we can price the assets as 0.5 USD per token.
 
 The USD and share delta's are opposite to that of standalone splits, i.e USD delta is positive and share delta is negative.
 
@@ -359,12 +358,68 @@ To check for correctness, we need to compare the ledger against Polymarket API. 
 
 [TODO: Add validation against Polymarket API]
 
+## Limitations
+
+### Pricing Approximations
+
+A majority of the pricing limitations come from the fact that I didn't spend time researching the optimal way to price the YES/NO tokens. This includes factoring in alot of factors and features like:
+* Ask - Bid mid price
+* How to price wide spreads ?
+* Last Execution price
+* How much time before a Execution price is now considered stale ?
+
+Generalizing this pricing for a large volume of markets, many of which are illiquid is a battle for another day.
+
+#### Pricing Splits and Merges
+When pricing Standalone splits and merges, we use a simple approximation of 0.5 USD per token. Our pricing affects the PnL of individual token, but converge when both YES and NO legs are settled. This effectively results in misattribution of PnL from one token to another. There are two ways to fix this:
+1. Use price from the next leg of the Split or Merge if any
+2. Backfall to current price of the YES/NO token
+
+#### Pricing Converts
+In Converts, the NO tokens are priced correctly. However, the YES tokens are priced at $0 USD is a problem. The ideal way to price is to subtract the current worth of `NO` tokens that were burned and subtract the `USD` value of collateral paid out. Once against this depends on reliably pricing the NO tokens.
+
+#### Pricing Transfers
+Standalone transfers are priced at $0. A wallet thus receiving inhertits a zero cost basis, which affects the eventual realized PnL. 
+
+### Scope
+
+The current ledger is tested against a subset of v1 data from October 2025 to April 2026. Its safe to assume that the ledger is correct for this subset, but not necessarily for v2. This is primarily since I haven't invested time into researching v2 changes. Specifically addition of fees to the protocol, without changes to the CTF logic, could mean potentially incorrect asset transfer info, post fee reductions. In NegRisk Convert, we can already see this slightly play out, as the presence of fees affects the position of the events, that are to be matched.
+
+### Flaw in Double Counting Filter
+
+We exclude entire transactions from the Standalone Split/Merge detection, if the said transaction contains a OrderFilled event. If a transaction that batches a Standalone Split/Merge with a CLOB order with Split/Merge, the ledger drops these transactions. This is the reason why our ledger implementation has 2 negative balances. 
+
+Eg: [Transaction](https://polygonscan.com/tx/0xae9ce3b1971fc9c0d3731c6fa5eb7d930eeb2c5cd169dc395bec0271acfe9195#eventlog)
+
+This should be easier to resolve, with a more sophisticated CLOB trades table, that can include the Split/Merge associated with a CLOB trade. Since DuneSQL already performs hash filtering via joins, the computational difference should be minimal with the CLOB trades table already built.
+
 ## Queries
 
 - Resolution Summary - [Dune Query](https://dune.com/queries/8229847)
 - Resolution Ledger - [Dune Query](https://dune.com/queries/8148073)
 - Naive Ledger Summary - [Dune Query](https://dune.com/queries/8230769)
 - ERC 1155 LedgerSummary - [Dune Query](https://dune.com/queries/8230946)
+
+## SQL Mapping to Ledger
+
+| SQL layer                | Purpose                                                     |
+| ------------------------ | ----------------------------------------------------------- |
+| `short_list_markets`     | Define the market universe and settlement information       |
+| `trades_level_1`         | Separate and prepare individual fills and full-order events |
+| `trades_level_2`         | Classify and interpret trade structures                     |
+| `trades_level_3`         | Reconstruct complementary/taker-side information            |
+| `trades_level_4`         | Produce normalized trade-level values                       |
+| `batch_transfers`        | Decode ERC-1155 batch token movements                       |
+| `single_transfers`       | Decode individual ERC-1155 transfers                        |
+| `splits`                 | Identify standalone position splits                         |
+| `merges`                 | Identify standalone position merges                         |
+| `converts_*`             | Reconstruct Negative Risk conversion legs                   |
+| `trade_deltas`           | Convert CLOB activity into share and USD deltas             |
+| `merges_splits_converts` | Normalize protocol operations                               |
+| `single_transfer_deltas` | Normalize external transfers                                |
+| `non_trade_txs`          | Combine non-CLOB activity                                   |
+| `audit_txs`              | Construct transaction-level validation data                 |
+| `audit_aggr`             | Aggregate validation results                                |
 
 ## References
 * [Polymarket Volume Is Being Double-Counted - Storm Slivkoff - Paradigm](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted)
