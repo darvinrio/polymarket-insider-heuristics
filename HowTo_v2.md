@@ -56,7 +56,7 @@ Some approaches attempt to sidestep this by including wallets whose books will c
 
 [TODO: STRUCTURE THIS BETTER]
 A bigger issue with this methodology is that, the methodology doesn't understand the trade being placed, and the larger context behind the trade. To a new analyst, it looks like the user is selling YES tokens, but in reality, this trade was a 2nd leg of a trade where they were increasing their NO position. 
-A key tell is, if you look at the above example, you might notice that that the trader buys NO around 95 cents and sells NO around 96 cents. This is a known yield farming strategy on Polymarket, where wallets buy tokens close to resolution to take advantage of the last bit of price movement, which is highly likely to close at 1 dollar. This wallet in particular has been making such trades quite frequently, thus the low price selling is very odd.
+A slightly vague tell is, if you look at the above example, you might notice that that the trader buys NO around 95 cents and sells NO around 96 cents. This is a known yield farming strategy on Polymarket, where wallets buy tokens close to resolution to take advantage of the last bit of price movement, which is highly likely to close at 1 dollar. This wallet in particular has been making such trades quite frequently, thus the low price selling is very odd.
 
 ### 3.2. ERC 1155 balance reconstruction
 
@@ -95,12 +95,23 @@ The article by Slivkoff also explains the 3 different types of CLOB trades:
 ![OrderMatching](imgs/contract_control_flow.png)
 
 [TODO: improve wording here, and confirm what I say about the article]
-However, the article itself doesn't delve deeper into finer details beyond that. Lets check a specific fill event. 
+However, the article itself doesn't delve deeper into finer details beyond that. This is probably because the aim of that article itself was to analyze overal volume processed, and spread wasn't a focus for that. Lets check the following transaction [0x4fce56...93dc76](https://polygonscan.com/tx/0x4fce56dff16a86e8c55e04ebb9406026553e11f5236e7210b7b51803f093dc76). Its the same transaction that is discussed in Slivkoff's article. The transaction is a sale of `YES` tokens in the `Kamala Harris replaced as nominee at DNC?` market. 
+
+|Index|Maker|Taker|MakerAsset|TakerAsset|MakerAmountFilled|TakerAmountFilled|Shares|Amount|Price|FillType|
+|---|---|---|---|---|---|---|---|---|---|---|
+|Onchain|Onchain|Onchain|Onchain|Onchain|Onchain|Onchain|Dune|Dune|Dune|-|
+|---|---|---|---|---|---|---|---|---|---|---|
+|36|0xd9a591340776aced8f42b426dd1f42d0e79e8ce6|0x0c45c7c2b1ec281e2a8d0c204eb709f4bc9fba73|USD|YES|     28.413180| 3,157.020000|  3,157.020000|    $ 28.413180| $ 0.09|  Swap |
+|42|0x8e8cf968a888c72a45627be3660d1c815d4c6657|0x0c45c7c2b1ec281e2a8d0c204eb709f4bc9fba73|NO |USD|  6,842.980000| 6,781.393180|  6,842.980000| $ 6,781.393180| $ 0.90| Merge |
+|44|0x0c45c7c2b1ec281e2a8d0c204eb709f4bc9fba73|0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e|YES|USD| 10,000.000000|   90.0000000| 10,000.000000|   $ 90.0000000| $ 0.09| FullOrder | 
 
 [TODO: add sample transaction to show how usd and price don't match, and how the order fill only logs maker perspective]
 
-We find that `OrderFilled` event always contain one asset tokenID and the other is always the collateral, i.e USD.
-We also find that the `OrderFilled` events emit info from the maker's perspective, i.e the asset tokenID, usd amount and shares logged are the maker's side of the transaction. This is problematic when we deal with a **Split** or **Merge** trade, as the maker's asset tokenID is opposite to the taker's. While the shares remain constant, since equal amounts are required for Collateral movement, the USD amount logged is different. This is why the sum of USD logged in the individual fills do not match the USD logged in the final **FullOrder** `OrderFilled` event.
+A few takeways from the broader structure based on examples such as above:
+1. We find that `OrderFilled` event always contain one asset tokenID and the other is always the collateral, i.e USD.
+2. We also find that the `OrderFilled` events emit info from the maker's perspective, i.e the asset tokenID, usd amount and shares logged are the maker's side of the transaction. 
+
+This is problematic when we deal with a **Split** or **Merge** trade, as the maker's asset tokenID is opposite to the taker's. While the shares remain constant, since equal amounts are required for Collateral movement, the USD amount logged is different. This is why the sum of USD logged in the individual fills do not match the USD logged in the final **FullOrder** `OrderFilled` event. When trying to analyze the spread of execution, we will only have the average price of the trade, similar to that of the Polymarket API.
 
 To fix these issues (remember only for **Split** and **Merge** trades), we can get the taker's token ID from the full order `OrderFilled` event associated with the transaction, and the taker's price is computed as $(1 - p_{maker})$ (since YES and NO are complementary tokens, the sum is 1 USD). 
 Since the shares remain constant, the USD volume of the taker's fill can be computed as:
