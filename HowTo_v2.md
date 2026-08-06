@@ -133,17 +133,23 @@ We already slightly explored what potentially was missing. Splits and Merges. Tu
 A trader can deposit Collateral into a market - minting YES/NO pairs. Then the trader can sell the NO or YES into the market to get a complementary position. This is a non-CLOB Split.
 The opposite is also true: where a trader can buy a position, pair it with complementary position in their balances to withdraw collateral. This is a non-CLOB Merge.
 
-Looking back at the `0xce296aaf92ecc022cc6608a54c622bb1c445b71b` `Will Gemini 3.0 be released on November 17 2025?` market example, here is how the actual swap looks like [TODO : fix table]: 
+Looking back at the `0xce296aaf92ecc022cc6608a54c622bb1c445b71b` `Will Gemini 3.0 be released on November 17 2025?` market example, here is how the actual swap looks like 
+[TODO : fix table]: 
 
 | Timestamp           | Shares | Token Side | Direction | Shares Delta | Shares Cumulative | Flag | Token Price | USD Volume | Tx Link |  
 | ------------------- | ------ | ---------- | --------- | ------------ | ----------------- | ---- | ---- | ---- | ----    |
-| 2025-11-14 19:45:32 | 362.10 | NO         | BUY       | 362.10       | 362.10            | ✅   | 0.952 |	344.92 | [🔗](https://polygonscan.com/tx/0xb5c4db10463d7a05665e06794afe8400868baab79731296c0581df491ac5708a#eventlog) | 
-| 2025-11-15 02:53:26 | 100    | NO         | SELL      | -100         | 262.10            | ✅   | 0.962 |	96.20 | [🔗](https://polygonscan.com/tx/0xc992ae2be4d33a2846dfcce465085ada3b9579f8e163281d00b7e25b18c6e0e3#eventlog) | 
-| 2025-11-15 02:53:40 | 100    | NO         | SELL      | -100         | 162.10            | ✅   | 0.962 |	96.20 | [🔗](https://polygonscan.com/tx/0x4b67a585377cedcb7bc33f64dda9f72329d12c586365244c9ea53fc9f9a99b51#eventlog) | 
-| 2025-11-15 02:56:36 | 162.1  | NO         | SELL      | -162.1       | 0.00              | ✅   | 0.954 |	154.64 | [🔗](https://polygonscan.com/tx/0x8c274aaeecacabd2f5e8d16de0c7cc1590035f6e5a4d5937308068f5a0727796#eventlog) | 
-| 2025-11-15 03:29:28 | 100    | YES        | SELL      | -100         | -100              | 🚩   | 0.030	| 3.00 | [🔗](https://polygonscan.com/tx/0x76e3dc9817333f189a3526485a1538c0ddc33f74ace05e144036ae8a2b37af13#eventlog) | 
-| 2025-11-15 03:32:04 | 250    | YES        | SELL      | -250         | -350              | 🚩   | 0.030 |	7.50 | [🔗](https://polygonscan.com/tx/0x42424044aed3d4bc83ab792bab84cf890d40a694fb7584df30810b7cfaea02d4#eventlog) | 
+| 2025-11-14 19:45:32 | 362.10 | NO         | BUY       | +362.10      | 362.10            | ✅   | 0.952 |	344.92 | [0xb5c4db.. 🔗](https://polygonscan.com/tx/0xb5c4db10463d7a05665e06794afe8400868baab79731296c0581df491ac5708a#eventlog) | 
+| 2025-11-15 02:53:26 | 100    | NO         | SELL      | -100         | 262.10            | ✅   | 0.962 |	96.20  | [0xc992ae.. 🔗](https://polygonscan.com/tx/0xc992ae2be4d33a2846dfcce465085ada3b9579f8e163281d00b7e25b18c6e0e3#eventlog) | 
+| 2025-11-15 02:53:40 | 100    | NO         | SELL      | -100         | 162.10            | ✅   | 0.962 |	96.20  | [0x4b67a5.. 🔗](https://polygonscan.com/tx/0x4b67a585377cedcb7bc33f64dda9f72329d12c586365244c9ea53fc9f9a99b51#eventlog) | 
+| 2025-11-15 02:56:36 | 162.1  | NO         | SELL      | -162.1       | 0.00              | ✅   | 0.954 |	154.64 | [0x8c274a.. 🔗](https://polygonscan.com/tx/0x8c274aaeecacabd2f5e8d16de0c7cc1590035f6e5a4d5937308068f5a0727796#eventlog) | 
+| 2025-11-15 03:26:24 | 100    | YES        | SPLIT     | +100         | 100.00            | ✅   | 0.5   |	50.00  | [0xa5e792.. 🔗](https://polygonscan.com/tx/0xa5e79271aceadbcd24d11590c6853de0b54a06d3d005d8f3ea010da02d3411c4#eventlog) | 
+| 2025-11-15 03:26:24 | 100    | NO         | SPLIT     | +100         | 100.00            | ✅   | 0.5   |	50.00  | [0xa5e792.. 🔗](https://polygonscan.com/tx/0xa5e79271aceadbcd24d11590c6853de0b54a06d3d005d8f3ea010da02d3411c4#eventlog) | 
+| 2025-11-15 03:29:28 | 100    | YES        | SELL      | -100         | 0                 | ✅   | 0.030	| 3.00   | [0x76e3dc.. 🔗](https://polygonscan.com/tx/0x76e3dc9817333f189a3526485a1538c0ddc33f74ace05e144036ae8a2b37af13#eventlog) | 
+| 2025-11-15 03:26:24 | 250    | YES        | SPLIT     | +250         | 250.00            | ✅   | 0.5   |	50.00  | [0x7ba9db.. 🔗](https://polygonscan.com/tx/0x7ba9db8e79d3f4d44ea477e0c158c315bd045a3556b727c7806cbc1197852298#eventlog) | 
+| 2025-11-15 03:26:24 | 250    | NO         | SPLIT     | +250         | 350.00            | ✅   | 0.5   |	50.00  | [0x7ba9db.. 🔗](https://polygonscan.com/tx/0x7ba9db8e79d3f4d44ea477e0c158c315bd045a3556b727c7806cbc1197852298#eventlog) | 
+| 2025-11-15 03:32:04 | 250    | YES        | SELL      | -250         | 0                 | ✅   | 0.030 |	7.50   | [0x424240.. 🔗](https://polygonscan.com/tx/0x42424044aed3d4bc83ab792bab84cf890d40a694fb7584df30810b7cfaea02d4#eventlog) | 
 
+Before the 100 and 250 share sells of YES token, the trader executed SPLIT, where they deposited collateral to mint YES+NO pairs, thus creating a NO position. This is what I mean't by the trade itself was lacking context. In a previous work of mine, I labelled trades as Yield Farming and Notional Farming based on the price of execution of the trade. The SELLs of YES token would have been flagged as Notional Farming, since the token price was low, while in truth the trade was a second leg of a potential Yield Farming trade. The trader would go on to execute one more SPLIT + YES sale, before they SELL their accumulated 350 share NO position.
 
 Its obvious how quickly these non-CLOB changes can degrade your dataset. 
 1. Negative balances or Ghost sales - Where a trader seems to sell a position which they didnt own.
