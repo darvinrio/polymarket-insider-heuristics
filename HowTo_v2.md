@@ -94,7 +94,7 @@ The article by Slivkoff also explains the 3 different types of CLOB trades:
 
 ![OrderMatching](imgs/contract_control_flow.png)
 
-[TODO: improve wording here, and confirm what I say about the article]
+~~[TODO: improve wording here, and confirm what I say about the article]~~
 However, the article itself doesn't delve deeper into finer details beyond that. This is probably because the aim of that article itself was to analyze overal volume processed, and spread wasn't a focus for that. Lets check the following transaction [0x4fce56...93dc76](https://polygonscan.com/tx/0x4fce56dff16a86e8c55e04ebb9406026553e11f5236e7210b7b51803f093dc76). Its the same transaction that is discussed in Slivkoff's article. The transaction is a sale of `YES` tokens in the `Kamala Harris replaced as nominee at DNC?` market. 
 
 |Index|Maker|Taker|MakerAsset|TakerAsset|MakerAmountFilled|TakerAmountFilled|Shares|Amount|Price|FillType|
@@ -105,7 +105,7 @@ However, the article itself doesn't delve deeper into finer details beyond that.
 |42|0x8e8cf968a888c72a45627be3660d1c815d4c6657|0x0c45c7c2b1ec281e2a8d0c204eb709f4bc9fba73|NO |USD|  6,842.980000| 6,781.393180|  6,842.980000| $ 6,781.393180| $ 0.90| Merge |
 |44|0x0c45c7c2b1ec281e2a8d0c204eb709f4bc9fba73|0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e|YES|USD| 10,000.000000|   90.0000000| 10,000.000000|   $ 90.0000000| $ 0.09| FullOrder | 
 
-[TODO: add sample transaction to show how usd and price don't match, and how the order fill only logs maker perspective]
+~~[TODO: add sample transaction to show how usd and price don't match, and how the order fill only logs maker perspective]~~
 
 A few takeways from the broader structure based on examples such as above:
 1. We find that `OrderFilled` event always contain one asset tokenID and the other is always the collateral, i.e USD.
@@ -134,7 +134,7 @@ A trader can deposit Collateral into a market - minting YES/NO pairs. Then the t
 The opposite is also true: where a trader can buy a position, pair it with complementary position in their balances to withdraw collateral. This is a non-CLOB Merge.
 
 Looking back at the `0xce296aaf92ecc022cc6608a54c622bb1c445b71b` `Will Gemini 3.0 be released on November 17 2025?` market example, here is how the actual swap looks like 
-[TODO : fix table]: 
+~~[TODO : fix table]~~
 
 | Timestamp           | Shares | Token Side | Direction | Shares Delta | Shares Cumulative | Flag | Token Price | USD Volume | Tx Link |  
 | ------------------- | ------ | ---------- | --------- | ------------ | ----------------- | ---- | ---- | ---- | ----    |
@@ -216,7 +216,13 @@ Since pricing involves USD to Token conversion, USD delta is negative, and Token
 
 #### Pricing the trade
 
-Since equal amount of YES and NO tokens are minted, we can price the assets as 0.5 USD per token. This is a rather naive pricing logic. The correct pricing logic would require us to match the 2nd leg of the trade, and price the assets based on the USD value of the 2nd leg. However, the existence of this 2nd leg is not always guaranteed. 
+Since equal amount of YES and NO tokens are minted, we can price the assets as 0.5 USD per token. This is a rather naive pricing logic. The correct pricing logic would require us to either:
+1. match the 2nd leg of the trade (or )
+2. have a standard pricing for YES/NO tokens. 
+
+We do not go down these approaches cause: 
+1. Pricing the assets based on the USD value of the 2nd leg requires the existence of this 2nd leg, which is not always guaranteed.
+2. Standard pricing of YES/NO tokens itself is a can of worms, cause you need to define the price - is it mid Price of CLOB ? or last executed price ? 
 
 eg:
 say a trader want to gain a position of 10 YES tokens. They deposit 10 USD and mint 10 YES tokens + 10 NO tokens. The 2nd leg of the trade would be to sell the 10 NO tokens on the market. If they sell the 10 NO tokens at a price of 0.1 USD per token, their recuperation is 1 USD (10 NO tokens * 0.1 USD per token). Thus the effective cost of the 10 YES position is 0.9 USD.
@@ -360,3 +366,9 @@ To check for correctness, we need to compare the ledger against Polymarket API. 
 - Resolution Ledger - https://dune.com/queries/8148073
 - Naive Ledger Summary - https://dune.com/queries/8230769
 - ERC 1155 LedgerSummary - https://dune.com/queries/8230946/12225243
+
+## References
+* [Polymarket Volume Is Being Double-Counted - Storm Slivkoff - Paradigm](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted)
+* [Polymarket Activity - Filippo Armani - Dune](https://dune.com/filarm/polymarket-activity)
+* [Polymarket Overview - DataDashboards - Dune](https://dune.com/datadashboards/polymarket-overview)
+* [From Iran to Taylor Swift:Informed Trading in Prediction Markets - Joshua Mitts, Moran Ofir](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6426778)
