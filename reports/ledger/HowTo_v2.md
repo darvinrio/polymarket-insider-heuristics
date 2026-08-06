@@ -15,9 +15,11 @@ Polymarket's own API provides three endpoints that are in-general used to pull t
 | `/v1/market-positions` | Current position snapshot | No history, no cost basis |
 | `/positions` | Position snapshot | No trade-level breakdown, no spread |
 | `/closed-positions` | Final resolved snapshot | No entry price, no path taken to get there |
+
 The problem with these endpoint is that, 
 1. They are closed source and blackboxed
 2. What you get is what you have - you get a final state, no historical data, no 2nd order analytics. (the same problem faced by every GraphQL endpoint)
+
 Important info like, entry and exit prices, fill spreads are condensed into a single `avgPrice` data point.
 One can assume they can circumnavigate the lack of historical data, utilizing the `/trades` endpoint. But as you will soon see, there is more to a position than trades alone.
 With respect to close source, building the dataset from onchain data gives the dataset verifiability, each action auditable and the ability to combine it with other onchain data.
@@ -28,7 +30,7 @@ Now that I have chosen the source of Data, I look at existing works.
 
 ### 3.1. CLOB only position reconstruction
 
-The most common approach is to aggregate USD delta from CLOB trades, built on top of `OrderFilled` events and combine it with USD withdrawn from `PayoutRedemption` events. As someone looking at Polymarket data structure for the first time, this sounds like a sound methodology.
+The most common approach is to aggregate USD delta from CLOB trades, built on top of `OrderFilled` events and combine it with USD withdrawn from `PayoutRedemption` events. As someone looking at Polymarket data structure for the first time, this sounds like a sound methodology (insert Me).
 > *A user can enter or exit positions through the CLOB and exit on Redemption*
 
 A position in Polymarket is stored as a ERC-1155 token share. Since this is a token share, this share cannot be negative. In order to validate the above assumption, we hence try to compute the shares delta from each CLOB trade or `OrderFilled` event.
@@ -91,11 +93,11 @@ The article by Slivkoff also explains the 3 different types of CLOB trades:
 - **Split**: A taker and maker jointly deposit USD, and receive same amount of YES/NO tokens respectively.
 - **Merge**: A taker and maker jointly deposit same amount of YES/NO tokens, and receive USD.
 
-
 ![OrderMatching](imgs/contract_control_flow.png)
 
-~~[TODO: improve wording here, and confirm what I say about the article]~~
-However, the article itself doesn't delve deeper into finer details beyond that. This is probably because the aim of that article itself was to analyze overal volume processed, and spread wasn't a focus for that. Lets check the following transaction [0x4fce56...93dc76](https://polygonscan.com/tx/0x4fce56dff16a86e8c55e04ebb9406026553e11f5236e7210b7b51803f093dc76). Its the same transaction that is discussed in Slivkoff's article. The transaction is a sale of `YES` tokens in the `Kamala Harris replaced as nominee at DNC?` market. 
+However, the article itself doesn't delve deeper into finer details beyond that. This is probably because the aim of that article itself was to analyze overal volume processed, and spread wasn't a focus for that. 
+
+Lets check the following transaction [0x4fce56...93dc76](https://polygonscan.com/tx/0x4fce56dff16a86e8c55e04ebb9406026553e11f5236e7210b7b51803f093dc76). Its the same transaction that is discussed in Slivkoff's article. The transaction is a sale of `YES` tokens in the `Kamala Harris replaced as nominee at DNC?` market. 
 
 |Index|Maker|Taker|MakerAsset|TakerAsset|MakerAmountFilled|TakerAmountFilled|Shares|Amount|Price|FillType|
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -104,8 +106,6 @@ However, the article itself doesn't delve deeper into finer details beyond that.
 |36|0xd9a591340776aced8f42b426dd1f42d0e79e8ce6|0x0c45c7c2b1ec281e2a8d0c204eb709f4bc9fba73|USD|YES|     28.413180| 3,157.020000|  3,157.020000|    $ 28.413180| $ 0.09|  Swap |
 |42|0x8e8cf968a888c72a45627be3660d1c815d4c6657|0x0c45c7c2b1ec281e2a8d0c204eb709f4bc9fba73|NO |USD|  6,842.980000| 6,781.393180|  6,842.980000| $ 6,781.393180| $ 0.90| Merge |
 |44|0x0c45c7c2b1ec281e2a8d0c204eb709f4bc9fba73|0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e|YES|USD| 10,000.000000|   90.0000000| 10,000.000000|   $ 90.0000000| $ 0.09| FullOrder | 
-
-~~[TODO: add sample transaction to show how usd and price don't match, and how the order fill only logs maker perspective]~~
 
 A few takeways from the broader structure based on examples such as above:
 1. We find that `OrderFilled` event always contain one asset tokenID and the other is always the collateral, i.e USD.
@@ -134,7 +134,6 @@ A trader can deposit Collateral into a market - minting YES/NO pairs. Then the t
 The opposite is also true: where a trader can buy a position, pair it with complementary position in their balances to withdraw collateral. This is a non-CLOB Merge.
 
 Looking back at the `0xce296aaf92ecc022cc6608a54c622bb1c445b71b` `Will Gemini 3.0 be released on November 17 2025?` market example, here is how the actual swap looks like 
-~~[TODO : fix table]~~
 
 | Timestamp           | Shares | Token Side | Direction | Shares Delta | Shares Cumulative | Flag | Token Price | USD Volume | Tx Link |  
 | ------------------- | ------ | ---------- | --------- | ------------ | ----------------- | ---- | ---- | ---- | ----    |
@@ -189,14 +188,14 @@ Our main north star should be that at all points, the running sum of all share d
 
 We need to 
 1. Unify the structure of the events:
-  1. Find the correct trader wallet
-  2. Calculate the correct share delta
-  3. Price the asset and Calculate the correct USD delta
+    1. Find the correct trader wallet
+    2. Calculate the correct share delta
+    3. Price the asset and Calculate the correct USD delta
 2. Bring together all the components of the ledger
-  1. CLOB trades
-  2. Standalone Splits and Merges
-  3. NegRisk Converts
-  4. Standalone Transfers
+    1. CLOB trades
+    2. Standalone Splits and Merges
+    3. NegRisk Converts
+    4. Standalone Transfers
 3. We need exactly one row per tokenID moved.
 
 ### CLOB Trades
@@ -207,7 +206,7 @@ On the basis of this assumption, we can simply get the Token ID, Share delta and
 ### Standalone Splits
 
 $$
-1 \text{USD} = 1 \text{YES} \plus 1 \text{NO}
+1 \text{USD} = 1 \text{YES} + 1 \text{NO}
 $$ 
 
 Standalone splits are detected by `PositionSplit` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is that, `PositionSplit` associated with `OrderFilled` are already accounted for in the CLOB trades, hence we avoid them to avoid double-counting. The wallet associated with the split is detected by the adjacent `BatchTransfer` event, that transfers all the YES + NO token pairs associated with that market. In the `BatchTransfer` event, the trading wallet is the recipient of the split tokens. Based on heuristics, the adjacent `BatchTransfer` event is always emitted right before or right after the `PositionSplit` event, i.e if `i` is the index of the `PositionSplit` event, then `i-1` or `i+1` is the index of the adjacent `BatchTransfer` event.
@@ -233,7 +232,7 @@ Our naive approach, manages to match the expected pricing, but offsets the effec
 ### Standalone Merges
 
 $$
-1 \text{YES} \plus 1 \text{NO} = 1 \text{USD}
+1 \text{YES} + 1 \text{NO} = 1 \text{USD}
 $$
 
 Standalone merges are detected by `PositionMerge` events, that do not have an `OrderFilled` event in the same transaction. The reasoning is the same as for standalone splits. Similar to standalone splits, the `BatchTransfer` event is used to detect the trading wallet associated with the merge, and the trading wallet is the sender of the merging tokens. Based on heuristics, the `BatchTransfer` event is always emitted 2 events before the `PositionMerge` event, i.e if `i` is the `PositionMerge` event index, then `i - 2` is the `BatchTransfer` event index. Similar to standalone splits, we can price the assets as 0.5 USD per token.
@@ -317,12 +316,12 @@ Resolution PnL
 ## Validation
 
 We choose a sample of the ledger, to validate the outputs for correctness and sanity. 
-We specifically choose all positions in markets that were created after October 1st, 2025, and ended with resolution or market end before April 28th, 2025. The April 28th was chosen specifically to only factor in v1 version of the protocol.
+We specifically choose all positions in markets that were created after October 1st, 2025, and ended with resolution or market end before April 28th, 2026. The April 28th was chosen specifically to only factor in v1 version of the protocol.
 
 | Metric | Value | Percentage |
 |--------|-------|------------|
 | Number of positions | 182.84m | 100% |
-| Negative positions (final shares < 0) | 726.83k | 0.40% |
+| Negative positions (final shares < 0) | 624.17k | 0.40% |
 | Negative positions (final shares < -1) | 2 | 0.00% |
 | Negative positions (final shares < -100) | 0 | 0.00% |
 
@@ -348,11 +347,11 @@ The logic is that, since all positions must be a ERC 1155 position, the balance 
 | Metric | Our Ledger | ERC 1155 | Delta |
 |--------|-------|-------|-------|
 | Number of positions| 182.84m  | 191.25m | 🔻 -4.39% |
-| Ledger Traders | 1.61m | 1.61m | ▶ 0.00% |
-| Ledger Tokens | 1.49m | 1.51m  | 🔻 -1.3245%  |
+| Ledger Traders | 1.61m | 1.61m | ⚪  0.00% |
+| Ledger Tokens | 1.49m | 1.51m  | 🔻 -1.32%  |
 | Negative positions (final shares < 0) | 624.17k | 15.61m | 🔻 -96.00%  |
-| Negative positions (final shares < -1) | 2 | 0 | ▶ 0.00%  |
-| Negative positions (final shares < -100) | 0 | 0 | ▶ 0.00%  |
+| Negative positions (final shares < -1) | 2 | 0 | ⚪  0.00%  |
+| Negative positions (final shares < -100) | 0 | 0 | ⚪  0.00%  |
 
 Our ledger approach closes up with the ERC 1155 ledger.
 
@@ -362,13 +361,17 @@ To check for correctness, we need to compare the ledger against Polymarket API. 
 
 ## Queries
 
-- Resolution Summary - https://dune.com/queries/8229847
-- Resolution Ledger - https://dune.com/queries/8148073
-- Naive Ledger Summary - https://dune.com/queries/8230769
-- ERC 1155 LedgerSummary - https://dune.com/queries/8230946/12225243
+- Resolution Summary - [Dune Query](https://dune.com/queries/8229847)
+- Resolution Ledger - [Dune Query](https://dune.com/queries/8148073)
+- Naive Ledger Summary - [Dune Query](https://dune.com/queries/8230769)
+- ERC 1155 LedgerSummary - [Dune Query](https://dune.com/queries/8230946)
 
 ## References
 * [Polymarket Volume Is Being Double-Counted - Storm Slivkoff - Paradigm](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted)
 * [Polymarket Activity - Filippo Armani - Dune](https://dune.com/filarm/polymarket-activity)
 * [Polymarket Overview - DataDashboards - Dune](https://dune.com/datadashboards/polymarket-overview)
 * [From Iran to Taylor Swift:Informed Trading in Prediction Markets - Joshua Mitts, Moran Ofir](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6426778)
+* [Decoding the Digital Tea Leaves: A Guide to Analyzing Polymarket's On-Chain Order Data](https://yzc.me/x01Crypto/decoding-polymarket)
+* [Splitting — startpolymarket.com](https://startpolymarket.com/learn/splitting/)
+* [Merging — startpolymarket.com](https://startpolymarket.com/learn/merging/)
+* [Neg Risk and Converting — startpolymarket.com](https://startpolymarket.com/learn/converting-negative-risk/)
