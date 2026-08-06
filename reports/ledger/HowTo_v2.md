@@ -376,7 +376,7 @@ When pricing Standalone splits and merges, we use a simple approximation of 0.5 
 2. Backfall to current price of the YES/NO token
 
 #### Pricing Converts
-In Converts, the NO tokens are priced correctly. However, the YES tokens are priced at $0 USD is a problem. The ideal way to price is to subtract the current worth of `NO` tokens that were burned and subtract the `USD` value of collateral paid out. Once against this depends on reliably pricing the NO tokens.
+In Converts, the NO tokens are priced correctly. However, the YES tokens are priced at $0 USD is a problem. The ideal way to price is to subtract the current worth of `NO` tokens that were burned and subtract the `USD` value of collateral paid out. Once against this depends on reliably pricing the NO tokens. This however might open another can of worms, where the cost basis of NO tokens is higher than the USD gained on Convert. This would denominate the YES token price as negative.
 
 #### Pricing Transfers
 Standalone transfers are priced at $0. A wallet thus receiving inhertits a zero cost basis, which affects the eventual realized PnL. 
