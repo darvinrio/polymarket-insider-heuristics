@@ -290,3 +290,56 @@ Position settlement value
             ↓
 Resolution PnL
 ```
+
+## Validation
+
+We choose a sample of the ledger, to validate the outputs for correctness and sanity. 
+We specifically choose all positions in markets that were created after October 1st, 2025, and ended with resolution or market end before April 28th, 2025. The April 28th was chosen specifically to only factor in v1 version of the protocol.
+
+| Metric | Value | Percentage |
+|--------|-------|------------|
+| Number of positions | 182.84m | 100% |
+| Negative positions (final shares < 0) | 726.83k | 0.40% |
+| Negative positions (final shares < -1) | 2 | 0.00% |
+| Negative positions (final shares < -100) | 0 | 0.00% |
+
+Thus we have achieved our first goal of non-negative shares.
+
+How does our ledger, compare to naive only trade logic?
+
+| Metric | Our Ledger | Naive Ledger | Delta |
+|--------|-------|------------|-------|
+| Number of positions | 182.84m | 15.99m | 🟢 +1043.46%  |
+| Ledger Traders | 1.61m | 916.72k | 🟢 +75.62%  |
+| Ledger Tokens | 1.49m | 218.87k | 🟢 +580.77%  |
+| Negative positions (final shares < 0) | 624.17k | 183.56k | 🟢 +295.96%  |
+| Negative positions (final shares < -1) | 2 | 84.97k | 🔻 -99.99%  |
+| Negative positions (final shares < -100) | 0 | 26.80k | 🔻 -100.00%  |
+
+Our legder improves coverages by a factor of 10x compared to naive ledger, while reducing significant negative positions to zero in a 6 month period.
+
+But how do we know it correct and complete ?
+To check for completeness, we compare with the ERC 1155 balance ledger, constructed from the running sum of deltas from all ERC 1155 transfers.
+The logic is that, since all positions must be a ERC 1155 position, the balance ledger should match closely the number of positions in our ledger.
+
+| Metric | Our Ledger | ERC 1155 | Delta |
+|--------|-------|-------|-------|
+| Number of positions| 182.84m  | 191.25m | 🔻 -4.39% |
+| Ledger Traders | 1.61m | 1.61m | ▶ 0.00% |
+| Ledger Tokens | 1.49m | 1.51m  | 🔻 -1.3245%  |
+| Negative positions (final shares < 0) | 624.17k | 15.61m | 🔻 -96.00%  |
+| Negative positions (final shares < -1) | 2 | 0 | ▶ 0.00%  |
+| Negative positions (final shares < -100) | 0 | 0 | ▶ 0.00%  |
+
+Our ledger approach closes up with the ERC 1155 ledger.
+
+To check for correctness, we need to compare the ledger against Polymarket API. Since we have ~180 million positions, we sample 5000 positions at random to compare against the API.
+
+[TODO: Add validation against Polymarket API]
+
+## Queries
+
+- Resolution Summary - https://dune.com/queries/8229847
+- Resolution Ledger - https://dune.com/queries/8148073
+- Naive Ledger Summary - https://dune.com/queries/8230769
+- ERC 1155 LedgerSummary - https://dune.com/queries/8230946/12225243
