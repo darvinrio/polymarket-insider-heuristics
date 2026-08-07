@@ -17,6 +17,7 @@ filter_wallets as (
         (0xd91e80cf2e7be2e162c6513ced06f1dd0da35296), -- negrisk adapter
         (0x3A3BD7bb9528E159577F7C2e685CC81A765002E2), -- wcol
         (0x05cD9922A5d37faE921Fc5Dee280A9dBc4C3b393), -- auto redemption
+        (0xa5ef39c3d3e10d0b270233af41cac69796b12966), -- negrisk burn
         (0x0000000000000000000000000000000000000000)
     ) as v(wallet)
 ),
