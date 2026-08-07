@@ -3,7 +3,7 @@
 ## 1. Introduction
 About a month ago, I started working on a framework to detect insider trading on Polymarket. I decided to use Dune as the data source, since it's easier to verify it by building it from first principles than by relying on the Polymarket API. One of the main features I wanted to use was PnL per position. However, I couldn't find a reliable source of this data. Multiple existing methodologies look reasonable, but break down the moment you run some basic sanity checks. The integrity of the PnL data is important to anything that's built on top of it. Hence, I decided to delve deeper into building a reliable PnL dataset on Dune with an auditable ledger, straight from onchain data. 
 This report is a documentation of the process: what are the obvious approaches, the flaws in them, where they break, and how to fix them. We use examples to pinpoint how each assumption breaks, and how the same example gets fixed at the end of the process.
-We will build an event-ledger that tracks all the onchain events associated with Polymarket positions, using it to reconstruct wallet-market level shares, USD flows and PnL. We will normalize all events into a common accounting model, and the resulting ledger can be used beyond just PnL calculations, and can be used to build downstream features such as execution behaviour and fill price dispersion.
+We will build an event-ledger that tracks all the onchain events associated with Polymarket positions, using it to reconstruct wallet-market level shares, USD flows, and PnL. We will normalize all events into a common accounting model, and the resulting ledger can be used beyond just PnL calculations, and can be used to build downstream features such as execution behaviour and fill price dispersion.
 
 ## 2. The drawbacks of the obvious source
 Choosing Dune as my data source was a major decision, esp when pretty much every other analytics framework from explorers to Twitter bots utilizes Polymarket's API source. This decision is made worse by the fact that quite a lot of Dune's prediction market data is now closed and available only to Enterprise customers. 
@@ -30,7 +30,7 @@ Now that I have chosen the source of Data, I look at existing works.
 
 ### 3.1. CLOB-only position reconstruction
 
-The most common approach is to aggregate USD delta from CLOB trades, built on top of `OrderFilled` events, and combine it with USD withdrawn from `PayoutRedemption` events. As someone looking at Polymarket data structure for the first time, this sounds like a sound methodology (insert Me).
+The most common approach is to aggregate USD delta from CLOB trades, built on top of `OrderFilled` events, and combine it with USD withdrawn from `PayoutRedemption` events. As someone looking at the Polymarket data structure for the first time, this sounds like a sound methodology (insert Me).
 > *A user can enter or exit positions through the CLOB and exit on Redemption*
 
 A position in Polymarket is stored as an ERC-1155 token share. Since this is a token share, this share cannot be negative. In order to validate the above assumption, we hence try to compute the shares delta from each CLOB trade or `OrderFilled` event.
@@ -147,11 +147,11 @@ Looking back at the `0xce296aaf92ecc022cc6608a54c622bb1c445b71b` `Will Gemini 3.
 | 2025-11-15 03:26:24 | 250    | NO         | SPLIT     | +250         | 350.00            | ✅   | 0.5   | 50.00  | [0x7ba9db.. 🔗](https://polygonscan.com/tx/0x7ba9db8e79d3f4d44ea477e0c158c315bd045a3556b727c7806cbc1197852298#eventlog) | 
 | 2025-11-15 03:32:04 | 250    | YES        | SELL      | -250         | 0                 | ✅   | 0.030 | 7.50   | [0x424240.. 🔗](https://polygonscan.com/tx/0x42424044aed3d4bc83ab792bab84cf890d40a694fb7584df30810b7cfaea02d4#eventlog) | 
 
-Before the 100 and 250 share sells of the YES token, the trader executed SPLIT, where they deposited collateral to mint YES+NO pairs, thus creating a NO position. This is what I meant by the trade itself lacking context. In a previous work of mine, I labelled trades as Yield Farming and Notional Farming based on the price of execution of the trade. The SELLs of YES token would have been flagged as Notional Farming, since the token price was low, while in truth the trade was a second leg of a potential Yield Farming trade. The trader would go on to execute one more SPLIT + YES sale, before they SELL their accumulated 350 share NO position.
+Before the 100 and 250 share sells of the YES token, the trader executed SPLIT, where they deposited collateral to mint YES+NO pairs, thus creating a NO position. This is what I meant by the trade itself lacking context. In a previous work of mine, I labelled trades as Yield Farming and Notional Farming based on the price of execution of the trade. The SELLs of YES token would have been flagged as Notional Farming, since the token price was low, while in truth the trade was a second leg of a potential Yield Farming trade. The trader would go on to execute one more SPLIT + YES sale before they SELL their accumulated 350 share NO position.
 
 It's obvious how quickly these non-CLOB changes can degrade your dataset. 
 1. Negative balances or Ghost sales - Where a trader seems to sell a position which they didn't own.
-2. Zero Balances post buying - Where a trader just executed a buy, but their position exposure is zero, without a single sale.
+2. Zero balances post-buying - Where a trader just executed a buy, but their position exposure is zero, without a single sale.
 3. Merges involve withdrawing collateral - hence an increase in PnL is missed
 4. Splits involve depositing collateral - hence a decrease in PnL is missed
 Both of these affect PnL strongly, introducing negative PnL from negative balances, and positive PnL from Zero balances.
@@ -208,7 +208,7 @@ $$
 1 \text{USD} = 1 \text{YES} + 1 \text{NO}
 $$ 
 
-Standalone splits are detected by `PositionSplit` events that do not have an `OrderFilled` event in the same transaction. The reasoning is that `PositionSplit` associated with `OrderFilled` are already accounted for in the CLOB trades, hence we avoid them to avoid double-counting. The wallet associated with the split is detected by the adjacent `BatchTransfer` event, which transfers all the YES + NO token pairs associated with that market. In the `BatchTransfer` event, the trading wallet is the recipient of the split tokens. Based on protocol source code, the adjacent `BatchTransfer` event is always emitted right before or right after the `PositionSplit` event, i.e if `i` is the index of the `PositionSplit` event, then `i-1` or `i+1` is the index of the adjacent `BatchTransfer` event. This is because Normal CTFs and NegRisk CTFs have slightly different event emission styles. For a Normal CTF, the flow is `BatchTransfer` to the wallet calling the `split` function, followed by the `PositionSplit` event. For a NegRisk, the wallet calling the `split` function is the `NegRiskAdapter` contract, which then transfers the `YES` + `NO` tokens to the trading wallet.
+Standalone splits are detected by `PositionSplit` events that do not have an `OrderFilled` event in the same transaction. The reasoning is that `PositionSplit` events associated with `OrderFilled` are already accounted for in the CLOB trades; hence, we avoid them to avoid double-counting. The wallet associated with the split is detected by the adjacent `BatchTransfer` event, which transfers all the YES + NO token pairs associated with that market. In the `BatchTransfer` event, the trading wallet is the recipient of the split tokens. Based on protocol source code, the adjacent `BatchTransfer` event is always emitted right before or right after the `PositionSplit` event, i.e if `i` is the index of the `PositionSplit` event, then `i-1` or `i+1` is the index of the adjacent `BatchTransfer` event. This is because Normal CTFs and NegRisk CTFs have slightly different event emission styles. For a Normal CTF, the flow is `BatchTransfer` to the wallet calling the `split` function, followed by the `PositionSplit` event. For a NegRisk, the wallet calling the `split` function is the `NegRiskAdapter` contract, which then transfers the `YES` + `NO` tokens to the trading wallet.
 
 Since pricing involves USD to Token conversion, USD delta is negative, and Token delta is positive.
 
@@ -282,7 +282,7 @@ The ideal way to price these transfers would be to use the price of the token at
 | Convert (YES mint leg) | `$0` | `shares` | `$0` | The 1 remaining unit converts to YES "for free" — the USD value already realized on the burn leg |
 | Stray transfer | `$0`  | `-shares` if sender, `+shares` if receiver | `$0` | No USD changes hands; pure share movement between wallets |
 
-### 6.8. Assembling it all together
+### 6.8. Assembling it all
 
 We union them all together to get the unified ledger. We can then compute the running share balance and different USD flows. Finally, we can compute the USD invested and USD realized. We can use the `settlement_value` from market details to compute the resolution profit. The Final PnL is USD on resolution plus USD realized minus USD invested.
 
@@ -392,7 +392,7 @@ Standalone transfers are priced at $0. A wallet thus receiving inherits a zero c
 
 ### 8.2. Scope
 
-The current ledger is tested against a subset of v1 data from October 2025 to April 2026. It's safe to assume that the ledger is correct for this subset, but not necessarily for v2. This is primarily since I haven't invested time into researching v2 changes. Specifically, the addition of fees to the protocol, without changes to the CTF logic, could mean potentially incorrect asset transfer info, post-fee reductions. In NegRisk Convert, we can already see this slightly play out, as the presence of fees affects the position of the events that are to be matched.
+The current ledger is tested against a subset of v1 data from October 2025 to April 2026. It's safe to assume that the ledger is correct for this subset, but not necessarily for v2. This is primarily because I haven't invested time into researching v2 changes. Specifically, the addition of fees to the protocol, without changes to the CTF logic, could mean potentially incorrect asset transfer info, post-fee reductions. In NegRisk Convert, we can already see this slightly play out, as the presence of fees affects the position of the events that are to be matched.
 
 ### 8.3. Flaw in Double Counting Filter
 
