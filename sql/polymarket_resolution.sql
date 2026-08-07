@@ -16,6 +16,7 @@ filter_wallets as (
         (0xc5d563a36ae78145c45a50134d48a1215220f80a), -- negrisk v1
         (0xd91e80cf2e7be2e162c6513ced06f1dd0da35296), -- negrisk adapter
         (0x3A3BD7bb9528E159577F7C2e685CC81A765002E2), -- wcol
+        (0x05cD9922A5d37faE921Fc5Dee280A9dBc4C3b393), -- auto redemption
         (0x0000000000000000000000000000000000000000)
     ) as v(wallet)
 ),
@@ -218,12 +219,9 @@ batch_transfers as (
         -- split -> mint to contract, then transfer from contract
         "to" not in (
             0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
-            0xc5d563a36ae78145c45a50134d48a1215220f80a,  -- negrisk v1
-            0xd91e80cf2e7be2e162c6513ced06f1dd0da35296 -- negrisk adapter
+            0xc5d563a36ae78145c45a50134d48a1215220f80a,  -- negrisk exchange v1
+            -- 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296 -- negrisk adapter
         )
-        or
-        -- merge -> burn
-        "to" = 0x0000000000000000000000000000000000000000
     )
     -- and (
     --     "from" in (select maker from short_list_wallets)
@@ -335,9 +333,17 @@ splits as (
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
             and (
-                p.evt_index + 1 = b.evt_index
+                (
+                    p.evt_index + 1 = b.evt_index -- negrisk
+                    and
+                    b.sender = 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296 -- negrisk adapter
+                )
                 or
-                p.evt_index - 1 = b.evt_index
+                (
+                    p.evt_index - 1 = b.evt_index -- ctf
+                    and
+                    b.sender != 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296
+                )
             )
     where true
     and evt_block_date >= date'2025-10-01'
@@ -370,7 +376,19 @@ merges as (
     from polymarket_polygon.ctf_evt_positionsmerge p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
-            and p.evt_index = b.evt_index + 2
+            and (
+                (
+                    p.evt_index = b.evt_index + 2 -- ctf
+                    and
+                    b.recipient != 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296
+                )
+                or
+                (
+                    p.evt_index = b.evt_index + 3 -- negrisk
+                    and
+                    b.recipient = 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296 -- negrisk adapter
+                )
+            )
     where true
     and evt_block_date >= date'2025-10-01'
     and evt_block_date <= date'2026-05-01'
