@@ -17,6 +17,9 @@ samples_df = (
     .drop(["h", "pnl_bucket", "rn"])
 )
 
+samples_keys = samples_df.select(pl.col("key")).collect()
+logger.info(f"Number of samples: {len(samples_keys)}")
+
 # Trader + List of Condition IDs
 trader_condition_df = (
     samples_df.select(
@@ -89,6 +92,41 @@ def get_pnl_df(
 
 
 combined_df = get_pnl_df(samples_df, all_positions_df)
+combined_keys = (
+    combined_df.filter(pl.col("is_available").eq(1)).select(pl.col("key")).collect()
+)
+logger.info(f"Number of API matches: {len(combined_keys)}")
+
+missing_entries = combined_df.filter(pl.col("is_available").eq(0))
+logger.info(f"Number of missing entries: {missing_entries.collect().shape[0]}")
+
+polymarket_contract_entries = combined_df.filter(
+    pl.col("trader").is_in(
+        [
+            "0xa5ef39c3d3e10d0b270233af41cac69796b12966",
+            "0x05cd9922a5d37fae921fc5dee280a9dbc4c3b393",
+        ]
+    )
+)
+logger.info(
+    f"Number of polymarket contract entries: {polymarket_contract_entries.collect().shape[0]}"
+)
+
+missing_entries = missing_entries.filter(
+    ~pl.col("trader").is_in(
+        [
+            "0xa5ef39c3d3e10d0b270233af41cac69796b12966",
+            "0x05cd9922a5d37fae921fc5dee280a9dbc4c3b393",
+        ]
+    )
+)
+logger.info(
+    f"Number of missing entries (excluding polymarket contracts): {missing_entries.collect().shape[0]}"
+)
+missing_entries.drop("key").sort(pl.col("final_profit").abs()).collect().write_csv(
+    "scripts/validation/outputs/missing_entries.csv"
+)
+
 
 problematic_df = combined_df.filter(
     (pl.col("pnl_diff_percent").ge(1)) & (pl.col("pnl_diff").ge(10))
@@ -97,7 +135,7 @@ problematic_df = combined_df.filter(
 logger.info(f"Problematic positions: {problematic_df.collect().shape[0]}")
 
 ## ROUND 2
-logger.info("ROUND 2")
+logger.success("ROUND 2")
 
 problematic_keys = problematic_df.select("key").collect().to_series().to_list()
 rectified_samples_df = (
@@ -112,7 +150,7 @@ problematic_rectified_df = rectified_combined_df.filter(
 ).sort("pnl_diff_percent", descending=True)
 
 logger.info(
-    f"Problematic rectified positions: {problematic_rectified_df.collect().shape[0]}"
+    f"Problematic post rectification: {problematic_rectified_df.collect().shape[0]}"
 )
 
 problematic_rectified_df.drop("key").collect().write_csv(
