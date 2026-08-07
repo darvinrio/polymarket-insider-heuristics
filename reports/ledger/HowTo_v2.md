@@ -408,6 +408,7 @@ This should be easier to resolve, with a more sophisticated CLOB trades table, t
 - Resolution Ledger - [Dune Query](https://dune.com/queries/8148073)
 - Naive Ledger Summary - [Dune Query](https://dune.com/queries/8230769)
 - ERC 1155 LedgerSummary - [Dune Query](https://dune.com/queries/8230946)
+- Stratified Sampling - [Dune Query](https://dune.com/queries/8233356)
 
 ## SQL Mapping to Ledger
 
