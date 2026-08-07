@@ -58,6 +58,7 @@ sanity checks:
 * convert with usdc - https://polygonscan.com/tx/0x3a2e7f588e1b67afd2cc03f854bfe8b8f1ec2e9762d16da6fd89b56b8bd60689#eventlog
 * another convert with usdc - https://polygonscan.com/tx/0x76dd910235767078e08138c9d20cd45e7024e4fd31c24d37094b90da27cf18b6#eventlog
 * weird trade - https://polygonscan.com/tx/0xae9ce3b1971fc9c0d3731c6fa5eb7d930eeb2c5cd169dc395bec0271acfe9195#eventlog
+* negrisk merge - https://polygonscan.com/tx/0x1caf0b4f8dbad895baf7bc4516f0eca1649e8c3522648398928fb98884109544#eventlog
 
 refs:
 * [Polymarket Volume Is Being Double-Counted - Storm Slivkoff - Paradigm](https://www.paradigm.xyz/2025/12/polymarket-volume-is-being-double-counted)
