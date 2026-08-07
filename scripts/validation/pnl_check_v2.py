@@ -123,7 +123,7 @@ missing_entries = missing_entries.filter(
 logger.info(
     f"Number of missing entries (excluding polymarket contracts): {missing_entries.collect().shape[0]}"
 )
-missing_entries.drop("key").sort(pl.col("final_profit").abs()).collect().write_csv(
+missing_entries.drop("key").sort(pl.col("final_profit")).collect().write_csv(
     "scripts/validation/outputs/missing_entries.csv"
 )
 
