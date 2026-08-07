@@ -365,7 +365,24 @@ When compared against the API,
 
 The remaining 67 positions have either a Transfer Out or a Negrisk NO Convert. Manual verification of these positions seems to suggest that the positions would match the API values if the NegRisk NO Conversions or Transfers were ignored.
 
-[TODO: Add validation against Polymarket API]
+Of the 1166 positions that did not match with API
+1. 138 positions belong to `0x05cd9922a5d37fae921fc5dee280a9dbc4c3b393` - The Auto Redemption contract
+2. 97 positions belong to `0xa5ef39c3d3e10d0b270233af41cac69796b12966` - The NegRisk Escrow contract
+3. 137 positions have absolute PnL less than 10$
+4. 789 positions have PnL less than -10$, all the way to -3,000,000$
+5. 17 positions have PnL above 10$, all the way to 300,000$
+
+We check the top 2 most negative PnL and the top 2 most positive PnL positions to try and understand why the positions do not appear at the API at all. 
+It doesn't make much sense as to why they do not appear at the API at all. 
+1. `0xae8758cf74d46eb0c9d889e50f1a089b1e3bc735` wallet `NO` position on `Will Real Madrid CF win on 2026-03-07? - RC Celta de Vigo vs. Real Madrid CF` market has 392 transfer events, but the API doesn't have an entry
+2. `0x01542a212c9696da5b409cae879143b8966115a8` wallet `YES` on `Will Bitcoin reach $105,000 in January?` market has 405 transfer events , but the API only has logged the `NO` position, which itself has a `$-307,989.28` PnL. In this case, the postive PnL of the YES position would register a net positive PnL.
+
+|Trader|Token|PnL|TokenID|Condition ID|Market|Dune Query]
+|------|-----|-----|-----|-------|------|------|
+|0xae8758cf74d46eb0c9d889e50f1a089b1e3bc735|NO| -3,255,428.68|30460198104425192234011482627716526429118981289164193924263317826299055501303|0x832e608427a5d6db43947262d84a06bca5630a700eac7eed50e64d00b1a016df|Will Real Madrid CF win on 2026-03-07? - RC Celta de Vigo vs. Real Madrid CF|[🔗](https://dune.com/queries/8252193/12248358?LIMIT_t6f0df=10000)
+|0x742defec5672b86ae1366546977323d0b0fb33fb|YES| -3,222,068.65 |47494701246623683904467099439211712078496707997982781452643608690648347494691|0x22210ba50e974556bb194cd0f0176ae82dc2ac1b2db42e2ad2c20801ff9f5c8b|Will Brentford FC win on 2026-03-16? - Brentford FC vs. Wolverhampton Wanderers FC|[🔗](https://dune.com/queries/8252193/12253736?END_DATE_t6f0df=2026-03-18&LIMIT_t6f0df=10000&START_DATE_t6f0df=2026-03-10&TOKEN_ID_t6f0df=47494701246623683904467099439211712078496707997982781452643608690648347494691&TRADER_t6f0df=0x742defec5672b86ae1366546977323d0b0fb33fb)
+|0x01542a212c9696da5b409cae879143b8966115a8|YES| 317,667.48|5890753752906002052534785499305647451620312211019774830504168272322511375782|0x542fb07feb00feddb87c1d9e93ebf439a692c6b12e81e935ef2a5cda7de70dfb|Will Bitcoin reach $105,000 in January?|[🔗](https://dune.com/queries/8252193/12248358?LIMIT_t6f0df=10000&TRADER_t6f0df=0x01542a212c9696da5b409cae879143b8966115a8&TOKEN_ID_t6f0df=5890753752906002052534785499305647451620312211019774830504168272322511375782&END_DATE_t6f0df=2026-02-02&START_DATE_t6f0df=2026-01-01)
+|0x2eb5714ff6f20f5f9f7662c556dbef5e1c9bf4d4|YES| 327,151.19|73624432805780182150964443951045800666977811185963019133914618974858599458273|0x561ffbf7de21ef3781c441f30536b026d2b301d7a4a0145a8f526f98db049ba2|Will Bitcoin reach $150,000 in March?|[🔗](https://dune.com/queries/8252193/12253736?LIMIT_t6f0df=10000&TRADER_t6f0df=0x2eb5714ff6f20f5f9f7662c556dbef5e1c9bf4d4&TOKEN_ID_t6f0df=73624432805780182150964443951045800666977811185963019133914618974858599458273&END_DATE_t6f0df=2026-04-02&START_DATE_t6f0df=2026-03-01)
 
 ## 8. Limitations
 
@@ -440,3 +457,4 @@ This should be easier to resolve with a more sophisticated CLOB trades table tha
 * [Splitting — startpolymarket.com](https://startpolymarket.com/learn/splitting/)
 * [Merging — startpolymarket.com](https://startpolymarket.com/learn/merging/)
 * [Neg Risk and Converting — startpolymarket.com](https://startpolymarket.com/learn/converting-negative-risk/)
+* [Network-Based Detection of Wash Trading](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5714122)
