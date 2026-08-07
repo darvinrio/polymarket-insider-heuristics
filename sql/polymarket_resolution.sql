@@ -189,6 +189,7 @@ batch_transfers as (
         evt_block_time,
         evt_block_number,
         evt_index,
+        token_index,
         evt_tx_hash,
         operator,
         "from" as sender,
@@ -208,7 +209,7 @@ batch_transfers as (
         s.orders_end_time,
         s.settlement_value
     from polymarket_polygon.ctf_evt_transferbatch b
-        cross join unnest(b.ids, b."values") as u(token_id, shares_raw)
+        cross join unnest(b.ids, b."values") with ordinality as u(token_id, shares_raw, token_index)
         join short_list_markets s
             on u.token_id = s.token_id
     where true
@@ -312,6 +313,7 @@ splits as (
         p.evt_block_time,
         p.evt_block_number,
         p.evt_index,
+        b.token_index,
         p.evt_tx_hash,
         b.condition_id,
         p.amount,
@@ -356,6 +358,7 @@ merges as (
         p.evt_block_time,
         p.evt_block_number,
         p.evt_index,
+        b.token_index,
         p.evt_tx_hash,
         b.condition_id,
         p.amount,
@@ -400,6 +403,7 @@ converts_to_yes as (
         p.evt_block_time,
         p.evt_block_number,
         p.evt_index,
+        b.token_index,
         p.evt_tx_hash,
         -- p.conditionId as condition_id,
         b.condition_id,
@@ -436,6 +440,7 @@ converts_from_no as (
         p.evt_block_time,
         p.evt_block_number,
         p.evt_index,
+        b.token_index,
         p.evt_tx_hash,
         -- p.conditionId as condition_id,
         b.condition_id,
@@ -485,6 +490,7 @@ trade_deltas as (
     select
         block_time,
         evt_index,
+        0 as token_index,
         block_number,
         tx_hash,
         maker,
@@ -535,6 +541,7 @@ merges_splits_converts as (
     select
         evt_block_time as block_time,
         evt_index,
+        token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
         trader,
@@ -561,6 +568,7 @@ merges_splits_converts as (
     select
         evt_block_time as block_time,
         evt_index,
+        token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
         trader,
@@ -587,6 +595,7 @@ merges_splits_converts as (
     select
         evt_block_time as block_time,
         evt_index,
+        token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
         trader,
@@ -614,6 +623,7 @@ single_transfer_deltas as (
     select
         evt_block_time as block_time,
         evt_index,
+        0 as token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
         sender as trader,
@@ -641,6 +651,7 @@ single_transfer_deltas as (
     select
         evt_block_time as block_time,
         evt_index,
+        0 as token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
         recipient as trader,
