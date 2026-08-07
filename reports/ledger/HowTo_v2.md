@@ -354,7 +354,16 @@ The logic is that, since all positions must be a ERC 1155 position, the balance 
 
 Our ledger approach closes up with the ERC 1155 ledger.
 
-To check for correctness, we need to compare the ledger against Polymarket API. Since we have ~180 million positions, we sample 5000 positions at random to compare against the API.
+To check for correctness, we need to compare the ledger against Polymarket API. Since we have ~180 million positions, we sample 5000 positions at random to compare against the API. We bucket the absolute PnL into 6 buckets [0, 100, 1k, 10k, 100k, 1M]. We sample 1000 positions from each bucket. Then we also sample the lowest 1000 positions and also the highest 1000 positions. We get exactly 7092 positions.
+We compare the sampled positions against the API and check for correctness.
+We define correctness threshold as a difference greater than 10$ in PnL or 1% in PnL%.
+
+When compared against the API,
+1. We get 5915 matches - i.e 1166 positions do not match with the API
+2. 5834 positions fall under the threshold - 81 positions do not match with the API
+3. Of the 81 positions, 14 positions are close to the threshold
+
+The remaining 67 positions have either a Transfer Out or a Negrisk NO Convert. Manual verification of of these positions seems to suggest that the positions would match the API values, if the NegRisk NO Conversions or Transfers were ignored.
 
 [TODO: Add validation against Polymarket API]
 
