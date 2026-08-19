@@ -419,13 +419,30 @@ merges as (
                 (
                     p.evt_index = b.evt_index + 2 -- ctf
                     and
-                    b.recipient != 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296
+                    b.recipient not in (
+                        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+                        0xAdA100Db00Ca00073811820692005400218FcE1f, -- ctf collateral adapter
+                        0xADa100874d00e3331D00F2007a9c336a65009718, -- ctf collateral adapter
+                    )
                 )
                 or
                 (
                     p.evt_index = b.evt_index + 3 -- negrisk
                     and
-                    b.recipient = 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296 -- negrisk adapter
+                    b.recipient in (
+                        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+                        0xAdA100Db00Ca00073811820692005400218FcE1f, -- ctf collateral adapter
+                        0xADa100874d00e3331D00F2007a9c336a65009718, -- ctf collateral adapter
+                    )
+                )
+                or
+                (
+                    p.evt_index = b.evt_index + 4 -- negrisk v2
+                    and
+                    b.recipient in (
+                        0xadA2005600Dec949baf300f4C6120000bDB6eAab, -- negrisk collateral adapter
+                        0xAdA200001000ef00D07553cEE7006808F895c6F1  -- negrisk collateral adapter
+                    )
                 )
             )
     where true
