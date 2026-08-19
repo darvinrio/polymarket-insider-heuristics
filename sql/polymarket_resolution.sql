@@ -18,6 +18,22 @@ filter_wallets as (
         (0x3A3BD7bb9528E159577F7C2e685CC81A765002E2), -- wcol
         (0x05cD9922A5d37faE921Fc5Dee280A9dBc4C3b393), -- auto redemption
         (0xa5ef39c3d3e10d0b270233af41cac69796b12966), -- negrisk burn
+
+        -- v2
+        (0xE111180000d2663C0091e4f400237545B87B996B), -- v2 ctf
+        (0xe2222d279d744050d28e00520010520000310F59), -- v2 negrisk
+        (0xAdA100Db00Ca00073811820692005400218FcE1f), -- ctf collateral adapter
+        (0xadA2005600Dec949baf300f4C6120000bDB6eAab), -- negrisk collateral adapter
+        (0xa1200000d0002264C9a1698e001292D00E1b00af), -- auto redemption
+
+        -- combos
+        (0x006F54F7f9A22e0000CC2AB60031000000ae9fEF), -- PositionManager
+    	(0x1000008dD9001B968442c1000017eaE6E0dA00Ba), -- BinaryModule
+    	(0x200000900045e3B6259600682756002200028933), -- NegRiskModule
+    	(0x30000034706C7d8e12009DAB006Be20000c031A8), -- CombinatorialModule
+    	(0xe3333700cA9d93003F00f0F71f8515005F6c00Aa), -- Exchange
+    	(0xa1200000d0002264C9a1698e001292D00E1b00af), -- AutoRedeemer
+
         (0x0000000000000000000000000000000000000000)
     ) as v(wallet)
 ),
@@ -42,8 +58,8 @@ short_list_markets as (
         settlement_value
     from polymarket_polygon.market_details
     where true
-        and market_start_time > date'2025-10-01'
-        and resolved_on_timestamp < date'2026-04-28'
+        and market_start_time >= date'2026-05-01'
+        and resolved_on_timestamp < date'2026-08-01'
         -- and resolved_on_timestamp < date'2025-12-01'
         and cardinality(array_intersect(
             tags,
@@ -87,8 +103,8 @@ trades_level_1 as (
             and t.asset_id = s.token_id
     where true
         -- and block_month >= date'2024-08-01'
-        and block_month >= date'2025-10-01'
-        and block_month <= date'2026-05-01'
+        and block_month >= date'2026-05-01'
+        and block_month < date'2026-08-01'
         -- and block_month < date'2025-12-01'
         and contract_version = 'v1'
         -- and t.maker in (select maker from short_list_wallets)
@@ -214,14 +230,14 @@ batch_transfers as (
         join short_list_markets s
             on u.token_id = s.token_id
     where true
-    and evt_block_date >= date'2025-10-01'
-    and evt_block_date <= date'2026-05-01'
+    and evt_block_date >= date'2026-05-01'
+    and evt_block_date < date'2026-08-01'
     -- and evt_block_date < date'2025-12-01'
     and (
         -- split -> mint to contract, then transfer from contract
         "to" not in (
             0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
-            0xc5d563a36ae78145c45a50134d48a1215220f80a,  -- negrisk exchange v1
+            0xc5d563a36ae78145c45a50134d48a1215220f80a  -- negrisk exchange v1
             -- 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296 -- negrisk adapter
         )
     )
@@ -292,8 +308,8 @@ single_transfers as (
         join short_list_markets s
             on b.id = s.token_id
     where true
-    and evt_block_date >= date'2025-10-01'
-    and evt_block_date <= date'2026-05-01'
+    and evt_block_date >= date'2026-05-01'
+    and evt_block_date < date'2026-08-01'
     -- and evt_block_date < date'2025-12-01'
     and operator not in (select wallet from filter_wallets)
     and "to" not in (select wallet from filter_wallets)
@@ -394,8 +410,8 @@ merges as (
                 )
             )
     where true
-    and evt_block_date >= date'2025-10-01'
-    and evt_block_date <= date'2026-05-01'
+    and evt_block_date >= date'2026-05-01'
+    and evt_block_date < date'2026-08-01'
     -- and evt_block_date < date'2025-12-01'
     -- and b.recipient in (select maker from short_list_wallets)
 ),
@@ -431,8 +447,8 @@ converts_to_yes as (
             -- and b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296 -- not necessary imo
             and b.recipient = p.stakeholder
     where true
-    and evt_block_date >= date'2025-10-01'
-    and evt_block_date <= date'2026-05-01'
+    and evt_block_date >= date'2026-05-01'
+    and evt_block_date < date'2026-08-01'
     -- and evt_block_date < date'2025-12-01'
     -- and b.recipient in (select maker from short_list_wallets)
 ),
@@ -466,14 +482,13 @@ converts_from_no as (
             on p.evt_tx_hash = b.evt_tx_hash
             and b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
             and b.sender = p.stakeholder
-            -- and p.evt_index <= b.evt_index + 6
-            -- event list: sender no, minted no, fee colat, colat, fee yes, yes, position converted
-            and p.evt_index <= b.evt_index + 4
+            -- b.evt_index + 3 <= p.evt_index <= b.evt_index + 6
+            and p.evt_index >= b.evt_index + 3
+            and p.evt_index <= b.evt_index + 6
             and p.evt_index > b.evt_index
-            -- v1 has no fees, so lets ignore fee colat and fee yes
     where true
-    and evt_block_date >= date'2025-10-01'
-    and evt_block_date <= date'2026-05-01'
+    and evt_block_date >= date'2026-05-01'
+    and evt_block_date < date'2026-08-01'
     -- and evt_block_date < date'2025-12-01'
     -- and b.sender in (select maker from short_list_wallets)
 ),
