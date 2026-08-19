@@ -18,13 +18,15 @@ filter_wallets as (
         (0x3A3BD7bb9528E159577F7C2e685CC81A765002E2), -- wcol
         (0x05cD9922A5d37faE921Fc5Dee280A9dBc4C3b393), -- auto redemption
         (0xa5ef39c3d3e10d0b270233af41cac69796b12966), -- negrisk burn
+        (0xAdA100Db00Ca00073811820692005400218FcE1f), -- ctf collateral adapter
+        (0xadA2005600Dec949baf300f4C6120000bDB6eAab), -- negrisk collateral adapter
 
         -- v2
         (0xE111180000d2663C0091e4f400237545B87B996B), -- v2 ctf
         (0xe2222d279d744050d28e00520010520000310F59), -- v2 negrisk
-        (0xAdA100Db00Ca00073811820692005400218FcE1f), -- ctf collateral adapter
-        (0xadA2005600Dec949baf300f4C6120000bDB6eAab), -- negrisk collateral adapter
         (0xa1200000d0002264C9a1698e001292D00E1b00af), -- auto redemption
+        (0xADa100874d00e3331D00F2007a9c336a65009718), -- ctf collateral adapter
+        (0xAdA200001000ef00D07553cEE7006808F895c6F1), -- neg risk collateral adapter
 
         -- combos
         (0x006F54F7f9A22e0000CC2AB60031000000ae9fEF), -- PositionManager
