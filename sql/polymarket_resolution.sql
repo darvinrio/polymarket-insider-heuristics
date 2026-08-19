@@ -355,15 +355,32 @@ splits as (
             on p.evt_tx_hash = b.evt_tx_hash
             and (
                 (
-                    p.evt_index + 1 = b.evt_index -- negrisk
+                    p.evt_index + 1 = b.evt_index -- negrisk, v2 collat
                     and
-                    b.sender = 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296 -- negrisk adapter
+                    b.sender in (
+                        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+                        0xAdA100Db00Ca00073811820692005400218FcE1f, -- ctf collateral adapter
+                        0xADa100874d00e3331D00F2007a9c336a65009718, -- ctf collateral adapter
+                    )
+                )
+                or
+                (
+                    p.evt_index + 3 = b.evt_index -- negrisk v2
+                    and
+                    b.sender in (
+                        0xadA2005600Dec949baf300f4C6120000bDB6eAab, -- negrisk collateral adapter
+                        0xAdA200001000ef00D07553cEE7006808F895c6F1  -- negrisk collateral adapter
+                    )
                 )
                 or
                 (
                     p.evt_index - 1 = b.evt_index -- ctf
                     and
-                    b.sender != 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296
+                    b.sender not in (
+                        0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
+                        0xAdA100Db00Ca00073811820692005400218FcE1f, -- ctf collateral adapter
+                        0xADa100874d00e3331D00F2007a9c336a65009718, -- ctf collateral adapter
+                    )
                 )
             )
     where true
