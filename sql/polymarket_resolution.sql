@@ -45,6 +45,7 @@ short_list_markets as (
         token_id,
         question,
         event_market_name,
+        from_hex(event_market_id) as event_market_id,
         from_hex(condition_id) as condition_id,
         tags,
         neg_risk,
@@ -77,6 +78,7 @@ trades_level_1 as (
     select
         t.*,
         s.tags,
+        s.event_market_id,
         s.market_start_time,
         s.market_end_time,
         s.resolved_on_timestamp,
@@ -108,7 +110,7 @@ trades_level_1 as (
         and block_month >= date'2026-05-01'
         and block_month < date'2026-08-01'
         -- and block_month < date'2025-12-01'
-        and contract_version = 'v1'
+        -- and contract_version = 'v1'
         -- and t.maker in (select maker from short_list_wallets)
 ),
 trades_level_2 as (
@@ -160,6 +162,7 @@ trades_level_4 as (
         -- contract_address,
         condition_id,
         event_market_name,
+        event_market_id,
         question,
         polymarket_link,
         tags,
@@ -214,11 +217,13 @@ batch_transfers as (
         "from" as sender,
         "to" as recipient,
         u.token_id,
+        u.shares_raw,
         u.shares_raw/1e6 as shares,
         cardinality(b.ids) as ids_count,
 
         s.question,
         s.event_market_name,
+        s.event_market_id,
         s.final_outcome,
         s.token_outcome,
         s.condition_id,
@@ -266,6 +271,7 @@ stray_batch_transfers as (
 
         question,
         event_market_name,
+        event_market_id,
         final_outcome,
         token_outcome,
         condition_id,
@@ -300,6 +306,7 @@ single_transfers as (
 
         s.question,
         s.event_market_name,
+        s.event_market_id,
         s.final_outcome,
         s.token_outcome,
         s.condition_id,
@@ -344,6 +351,7 @@ splits as (
         'split' as trade_type,
         b.question,
         b.event_market_name,
+        b.event_market_id,
         b.final_outcome,
         b.token_outcome,
         -- b.condition_id,
@@ -406,6 +414,7 @@ merges as (
         'merge' as trade_type,
         b.question,
         b.event_market_name,
+        b.event_market_id,
         b.final_outcome,
         b.token_outcome,
         -- b.condition_id,
@@ -470,6 +479,7 @@ converts_to_yes as (
         'convert_to_yes' as trade_type,
         b.question,
         b.event_market_name,
+        b.event_market_id,
         b.final_outcome,
         b.token_outcome,
         -- b.condition_id,
@@ -481,6 +491,8 @@ converts_to_yes as (
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
+            and p.marketId = b.event_market_id
+            and p.amount = b.shares_raw
             and (
                 (
                     p.evt_index = b.evt_index + 1
@@ -522,6 +534,7 @@ converts_from_no as (
         'convert_from_no' as trade_type,
         b.question,
         b.event_market_name,
+        b.event_market_id,
         b.final_outcome,
         b.token_outcome,
         -- b.condition_id,
@@ -533,6 +546,8 @@ converts_from_no as (
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
+            and p.marketId = b.event_market_id
+            and p.amount = b.shares_raw
             and (
                 (
                     b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
@@ -549,14 +564,6 @@ converts_from_no as (
                     )
                     and b.operator = p.stakeholder
                     and b.recipient = p.stakeholder
-                    -- and b.operator in (
-                    --     0xadA2005600Dec949baf300f4C6120000bDB6eAab,
-                    --     0xAdA200001000ef00D07553cEE7006808F895c6F1
-                    -- )
-                    -- and b.recipient in (
-                    --     0xadA2005600Dec949baf300f4C6120000bDB6eAab,
-                    --     0xAdA200001000ef00D07553cEE7006808F895c6F1
-                    -- )
                     -- p.evt_index >= b.evt_index + 6
                     and p.evt_index >= b.evt_index + 6
                 )
@@ -598,6 +605,7 @@ trade_deltas as (
         orders_end_time,
 
         event_market_name,
+        event_market_id,
         maker_usd,
         case
             when maker_side_corrected = 'BUY'
@@ -647,6 +655,7 @@ merges_splits_converts as (
         market_end_time,
         orders_end_time,
         event_market_name,
+        event_market_id,
         shares/2 as usd,
         -shares as shares_delta,
         0 as shares_bought,
@@ -674,6 +683,7 @@ merges_splits_converts as (
         market_end_time,
         orders_end_time,
         event_market_name,
+        event_market_id,
         shares/2 as usd,
         shares as shares_delta,
         shares as shares_bought,
@@ -701,6 +711,7 @@ merges_splits_converts as (
         market_end_time,
         orders_end_time,
         event_market_name,
+        event_market_id,
         (ids_count - 1) * abs(shares) / ids_count  as usd,
         shares as shares_delta,
         shares as shares_bought,
@@ -729,6 +740,7 @@ single_transfer_deltas as (
         market_end_time,
         orders_end_time,
         event_market_name,
+        event_market_id,
         0 as usd,
         -shares as shares_delta,
         0 as shares_bought,
@@ -757,6 +769,7 @@ single_transfer_deltas as (
         market_end_time,
         orders_end_time,
         event_market_name,
+        event_market_id,
         0 as usd,
         shares as shares_delta,
         0 as shares_bought,
@@ -788,6 +801,7 @@ audit_aggr as (
         token_id,
         question,
         event_market_name,
+        event_market_id,
         maker_token_outcome,
         settlement_value,
         final_outcome,
@@ -830,7 +844,7 @@ audit_aggr as (
         sum(usd_realized) as usd_realized,
         sum(shares_delta) as total_shares
     from audit_txs
-    group by 1,2,3,4,5,6,7,8,9,10,11,12
+    group by 1,2,3,4,5,6,7,8,9,10,11,12,13
 )
 
 select *,
@@ -838,7 +852,7 @@ select *,
     (total_shares * settlement_value) - usd_invested + usd_realized as final_profit
 from audit_aggr
 where true
--- and total_shares < -1
+and total_shares < -1
 -- and trader in (select maker from short_list_wallets)
 -- and trader = 0x84571f1bf97a5c710cbe51daff2dd4556cc887fd
 -- -- and neg_risk = 'False'
@@ -849,7 +863,7 @@ where true
 -- and trader = 0xce296aaf92ecc022cc6608a54c622bb1c445b71b
 -- and condition_id = 0x45932bc66b00af152e158b1f4c916d9f1e7639b5641c7e8c2a6901a7efa905a9
 and trader not in (select wallet from filter_wallets)
--- order by total_shares desc
+order by total_shares
 limit 10
 
 -- select * from audit_txs
