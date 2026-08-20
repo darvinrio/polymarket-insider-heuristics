@@ -239,7 +239,9 @@ batch_transfers as (
         -- split -> mint to contract, then transfer from contract
         "to" not in (
             0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e, -- ctf exchange v1
-            0xc5d563a36ae78145c45a50134d48a1215220f80a  -- negrisk exchange v1
+            0xc5d563a36ae78145c45a50134d48a1215220f80a, -- negrisk exchange v1
+            0xE111180000d2663C0091e4f400237545B87B996B, -- v2 ctf
+            0xe2222d279d744050d28e00520010520000310F59  -- v2 negrisk
             -- 0xd91e80cf2e7be2e162c6513ced06f1dd0da35296 -- negrisk adapter
         )
     )
@@ -360,7 +362,7 @@ splits as (
                     b.sender in (
                         0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
                         0xAdA100Db00Ca00073811820692005400218FcE1f, -- ctf collateral adapter
-                        0xADa100874d00e3331D00F2007a9c336a65009718, -- ctf collateral adapter
+                        0xADa100874d00e3331D00F2007a9c336a65009718  -- ctf collateral adapter
                     )
                 )
                 or
@@ -379,13 +381,13 @@ splits as (
                     b.sender not in (
                         0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
                         0xAdA100Db00Ca00073811820692005400218FcE1f, -- ctf collateral adapter
-                        0xADa100874d00e3331D00F2007a9c336a65009718, -- ctf collateral adapter
+                        0xADa100874d00e3331D00F2007a9c336a65009718  -- ctf collateral adapter
                     )
                 )
             )
     where true
-    and evt_block_date >= date'2025-10-01'
-    and evt_block_date <= date'2026-05-01'
+    and evt_block_date >= date'2026-05-01'
+    and evt_block_date < date'2026-08-01'
     -- and evt_block_date < date'2025-12-01'
     -- and b.recipient in (select maker from short_list_wallets)
 ),
@@ -422,7 +424,7 @@ merges as (
                     b.recipient not in (
                         0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
                         0xAdA100Db00Ca00073811820692005400218FcE1f, -- ctf collateral adapter
-                        0xADa100874d00e3331D00F2007a9c336a65009718, -- ctf collateral adapter
+                        0xADa100874d00e3331D00F2007a9c336a65009718  -- ctf collateral adapter
                     )
                 )
                 or
@@ -432,7 +434,7 @@ merges as (
                     b.recipient in (
                         0xd91e80cf2e7be2e162c6513ced06f1dd0da35296, -- negrisk adapter
                         0xAdA100Db00Ca00073811820692005400218FcE1f, -- ctf collateral adapter
-                        0xADa100874d00e3331D00F2007a9c336a65009718, -- ctf collateral adapter
+                        0xADa100874d00e3331D00F2007a9c336a65009718  -- ctf collateral adapter
                     )
                 )
                 or
