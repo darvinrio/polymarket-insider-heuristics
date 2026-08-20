@@ -481,9 +481,24 @@ converts_to_yes as (
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
-            and p.evt_index = b.evt_index + 1
-            -- and b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296 -- not necessary imo
-            and b.recipient = p.stakeholder
+            and (
+                (
+                    p.evt_index = b.evt_index + 1
+                    and
+                    b.sender = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
+                    and b.recipient = p.stakeholder
+                )
+                or
+                (
+                    p.evt_index = b.evt_index - 1
+                    and
+                    b.sender in (
+                        0xadA2005600Dec949baf300f4C6120000bDB6eAab,
+                        0xAdA200001000ef00D07553cEE7006808F895c6F1
+                    )
+                    and b.sender = p.stakeholder
+                )
+            )
     where true
     and evt_block_date >= date'2026-05-01'
     and evt_block_date < date'2026-08-01'
@@ -518,12 +533,34 @@ converts_from_no as (
     from polymarket_polygon.negriskadapter_evt_positionsconverted p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
-            and b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
-            and b.sender = p.stakeholder
-            -- b.evt_index + 3 <= p.evt_index <= b.evt_index + 6
-            and p.evt_index >= b.evt_index + 3
-            and p.evt_index <= b.evt_index + 6
-            and p.evt_index > b.evt_index
+            and (
+                (
+                    b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
+                    and b.sender = p.stakeholder
+                    -- b.evt_index + 3 <= p.evt_index <= b.evt_index + 6
+                    and p.evt_index >= b.evt_index + 3
+                    and p.evt_index <= b.evt_index + 6
+                )
+                or
+                (
+                    p.stakeholder in (
+                        0xadA2005600Dec949baf300f4C6120000bDB6eAab,
+                        0xAdA200001000ef00D07553cEE7006808F895c6F1
+                    )
+                    and b.operator = p.stakeholder
+                    and b.recipient = p.stakeholder
+                    -- and b.operator in (
+                    --     0xadA2005600Dec949baf300f4C6120000bDB6eAab,
+                    --     0xAdA200001000ef00D07553cEE7006808F895c6F1
+                    -- )
+                    -- and b.recipient in (
+                    --     0xadA2005600Dec949baf300f4C6120000bDB6eAab,
+                    --     0xAdA200001000ef00D07553cEE7006808F895c6F1
+                    -- )
+                    -- p.evt_index >= b.evt_index + 6
+                    and p.evt_index >= b.evt_index + 6
+                )
+            )
     where true
     and evt_block_date >= date'2026-05-01'
     and evt_block_date < date'2026-08-01'
