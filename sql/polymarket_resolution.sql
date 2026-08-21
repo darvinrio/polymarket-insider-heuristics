@@ -74,6 +74,14 @@ short_list_markets as (
             ]
         )) = 0
 ),
+combinations as (
+    select
+        condition_id,
+        array_agg(token_id order by token_outcome desc) as combination,
+        true as is_split_merge
+    from short_list_markets
+    group by 1
+),
 trades_level_1 as (
     select
         t.*,
@@ -231,11 +239,14 @@ batch_transfers as (
         s.market_start_time,
         s.market_end_time,
         s.orders_end_time,
-        s.settlement_value
+        s.settlement_value,
+        coalesce(c.is_split_merge, false) as is_split_merge
     from polymarket_polygon.ctf_evt_transferbatch b
         cross join unnest(b.ids, b."values") with ordinality as u(token_id, shares_raw, token_index)
         join short_list_markets s
             on u.token_id = s.token_id
+        left join combinations c
+            on b.ids = c.combination
     where true
     and evt_block_date >= date'2026-05-01'
     and evt_block_date < date'2026-08-01'
@@ -363,6 +374,7 @@ splits as (
     from polymarket_polygon.ctf_evt_positionsplit p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
+            and p.conditionId = b.condition_id
             and (
                 (
                     p.evt_index + 1 = b.evt_index -- negrisk, v2 collat
@@ -426,6 +438,7 @@ merges as (
     from polymarket_polygon.ctf_evt_positionsmerge p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
+            and p.conditionId = b.condition_id
             and (
                 (
                     p.evt_index = b.evt_index + 2 -- ctf
@@ -548,6 +561,8 @@ converts_from_no as (
             on p.evt_tx_hash = b.evt_tx_hash
             and p.marketId = b.event_market_id
             and p.amount = b.shares_raw
+            and b.token_outcome = 'No'
+            and not(b.is_split_merge)
             and (
                 (
                     b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
