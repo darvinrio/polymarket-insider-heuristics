@@ -475,6 +475,15 @@ merges as (
     -- and evt_block_date < date'2025-12-01'
     -- and b.recipient in (select maker from short_list_wallets)
 ),
+converts_events as (
+    select *,
+        -- lag(evt_block_number) over (order by evt_block_number, evt_index) as prev_block_number,
+        lag(evt_index) over (order by evt_block_number, evt_index) as prev_evt_index
+    from polymarket_polygon.negriskadapter_evt_positionsconverted
+    where true
+    and evt_block_date >= date'2026-05-01'
+    and evt_block_date < date'2026-08-01'
+),
 converts_to_yes as (
     select
         p.evt_block_time,
@@ -501,7 +510,7 @@ converts_to_yes as (
         b.market_end_time,
         b.orders_end_time,
         b.settlement_value
-    from polymarket_polygon.negriskadapter_evt_positionsconverted p
+    from converts_events p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
             and p.marketId = b.event_market_id
@@ -524,11 +533,6 @@ converts_to_yes as (
                     and b.sender = p.stakeholder
                 )
             )
-    where true
-    and evt_block_date >= date'2026-05-01'
-    and evt_block_date < date'2026-08-01'
-    -- and evt_block_date < date'2025-12-01'
-    -- and b.recipient in (select maker from short_list_wallets)
 ),
 converts_from_no as (
     select
@@ -556,13 +560,14 @@ converts_from_no as (
         b.market_end_time,
         b.orders_end_time,
         b.settlement_value
-    from polymarket_polygon.negriskadapter_evt_positionsconverted p
+    from converts_events p
         join batch_transfers b
             on p.evt_tx_hash = b.evt_tx_hash
             and p.marketId = b.event_market_id
             and p.amount = b.shares_raw
             and b.token_outcome = 'No'
             and not(b.is_split_merge)
+            and b.evt_index > p.prev_evt_index
             and (
                 (
                     b.operator = 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
@@ -583,11 +588,6 @@ converts_from_no as (
                     and p.evt_index >= b.evt_index + 6
                 )
             )
-    where true
-    and evt_block_date >= date'2026-05-01'
-    and evt_block_date < date'2026-08-01'
-    -- and evt_block_date < date'2025-12-01'
-    -- and b.sender in (select maker from short_list_wallets)
 ),
 converts as (
     select *
