@@ -35,6 +35,7 @@ filter_wallets as (
     	(0x30000034706C7d8e12009DAB006Be20000c031A8), -- CombinatorialModule
     	(0xe3333700cA9d93003F00f0F71f8515005F6c00Aa), -- Exchange
     	(0xa1200000d0002264C9a1698e001292D00E1b00af), -- AutoRedeemer
+        (0xf3cfb6a6ebfeb51876289eb235719eb1c65252b0), -- CTF Autoredeem
 
         (0x0000000000000000000000000000000000000000)
     ) as v(wallet)
