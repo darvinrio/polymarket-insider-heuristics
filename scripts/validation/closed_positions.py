@@ -8,14 +8,20 @@ import os
 import time
 
 import requests
+from loguru import logger
 
 # --- Constants ---------------------------------------------------------
 
-CACHE_DIR = "data/cache/cache_closed_positions"
+_REPO_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+CACHE_DIR = os.path.join(_REPO_ROOT, "data", "cache", "cache_closed_positions")
 API_URL = "https://data-api.polymarket.com/closed-positions"
 PAGE_LIMIT = 50  # API max for `limit`
 DEFAULT_CHUNK = 20  # how many conditionIds to request per API call
 REQUEST_SLEEP = 0.15  # small delay between API calls to be polite
+MAX_RETRIES = 3
+RETRY_BACKOFF = 2.0  # seconds, doubles per retry
 
 
 # --- Helpers -------------------------------------------------------------
@@ -41,14 +47,44 @@ def _save_to_cache(trader: str, condition_id: str, positions: list):
         json.dump(positions, f, indent=2)
 
 
+def is_cached(trader: str, condition_id: str) -> bool:
+    return os.path.exists(_cache_path(trader.lower(), condition_id.lower()))
+
+
 def _chunked(seq, size):
     for i in range(0, len(seq), size):
         yield seq[i : i + size]
 
 
-def _fetch_chunk(trader: str, market_chunk: list) -> list:
+def _get_page(params: dict) -> list:
+    last_exc = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            resp = requests.get(API_URL, params=params, timeout=30)
+            resp.raise_for_status()
+            page = resp.json()
+            if not isinstance(page, list):
+                raise ValueError(f"Unexpected API response: {page}")
+            return page
+        except (requests.RequestException, ValueError) as exc:
+            last_exc = exc
+            if attempt < MAX_RETRIES - 1:
+                sleep_for = RETRY_BACKOFF * (2**attempt)
+                logger.warning(
+                    f"Request failed ({exc}); retry {attempt + 1}/{MAX_RETRIES - 1} "
+                    f"in {sleep_for:.0f}s"
+                )
+                time.sleep(sleep_for)
+    raise last_exc
+
+
+def _fetch_chunk(trader: str, market_chunk: list) -> tuple[list, bool]:
     """Fetch ALL closed positions for a chunk of conditionIds, paginating
-    through the API (limit=50 per page) until exhausted."""
+    through the API (limit=50 per page) until exhausted.
+
+    Returns (items, interrupted). If KeyboardInterrupt hits mid-pagination,
+    whatever pages were collected so far are returned with interrupted=True
+    so the caller can persist them before stopping."""
     all_items = []
     offset = 0
     market_param = ",".join(market_chunk)
@@ -60,12 +96,13 @@ def _fetch_chunk(trader: str, market_chunk: list) -> list:
             "limit": PAGE_LIMIT,
             "offset": offset,
         }
-        resp = requests.get(API_URL, params=params, timeout=30)
-        resp.raise_for_status()
-        page = resp.json()
-
-        if not isinstance(page, list):
-            raise ValueError(f"Unexpected API response: {page}")
+        try:
+            page = _get_page(params)
+        except KeyboardInterrupt:
+            logger.warning(
+                f"Interrupted mid-chunk; keeping {len(all_items)} items fetched so far"
+            )
+            return all_items, True
 
         all_items.extend(page)
 
@@ -78,7 +115,17 @@ def _fetch_chunk(trader: str, market_chunk: list) -> list:
 
         time.sleep(REQUEST_SLEEP)
 
-    return all_items
+    return all_items, False
+
+
+def _group_by_condition(items: list, market_chunk: list) -> dict:
+    """Group returned items by conditionId so each id gets its own cache entry
+    (some ids in the chunk may have zero positions)."""
+    by_condition = {cid: [] for cid in market_chunk}
+    for item in items:
+        cid = item.get("conditionId", "").lower()
+        by_condition.setdefault(cid, []).append(item)
+    return by_condition
 
 
 # --- Main function ---------------------------------------------------------
@@ -110,38 +157,60 @@ def get_closed_positions(
 
     results = []
     to_fetch = []
+    cached_positions = 0
 
     # 1. Pull whatever is already cached.
     for cid in condition_ids:
         cached = _load_from_cache(trader, cid) if use_cache else None
         if cached is not None:
             results.extend(cached)
+            cached_positions += len(cached)
         else:
             to_fetch.append(cid)
+
+    # logger.info(
+    #     f"{trader}: {len(condition_ids) - len(to_fetch)}/{len(condition_ids)} "
+    #     f"conditionIds from cache ({cached_positions} positions), "
+    #     f"{len(to_fetch)} to fetch"
+    # )
 
     if not to_fetch:
         return results
 
     # 2. Fetch the rest in chunks, then split & cache per conditionId.
+    interrupted = False
     for market_chunk in _chunked(to_fetch, chunk):
-        items = _fetch_chunk(trader, market_chunk)
+        try:
+            items, chunk_interrupted = _fetch_chunk(trader, market_chunk)
+        except (requests.RequestException, ValueError) as exc:
+            logger.error(
+                f"{trader}: skipping chunk of {len(market_chunk)} cids after "
+                f"{MAX_RETRIES} attempts ({exc}); re-run later to retry them"
+            )
+            time.sleep(REQUEST_SLEEP)
+            continue
 
-        # Group returned items by conditionId so each id gets its own
-        # cache entry (some ids in the chunk may have zero positions).
-        by_condition = {cid: [] for cid in market_chunk}
-        for item in items:
-            cid = item.get("conditionId", "").lower()
-            if cid in by_condition:
-                by_condition[cid].append(item)
-            else:
-                # Defensive: unexpected conditionId, still keep the data.
-                by_condition.setdefault(cid, []).append(item)
-
+        by_condition = _group_by_condition(items, market_chunk)
+        fetched_positions = 0
         for cid, cid_items in by_condition.items():
             _save_to_cache(trader, cid, cid_items)
             results.extend(cid_items)
+            fetched_positions += len(cid_items)
+
+        logger.info(
+            f"{trader}: chunk {len(market_chunk)} cids -> {fetched_positions} positions"
+        )
+
+        if chunk_interrupted:
+            interrupted = True
+            break
 
         time.sleep(REQUEST_SLEEP)
+
+    if interrupted:
+        raise KeyboardInterrupt(
+            f"Fetch interrupted; progress for {trader} saved to cache, re-run to resume"
+        )
 
     return results
 
