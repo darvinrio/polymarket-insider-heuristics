@@ -78,6 +78,7 @@ for (
     all_positions.extend(trader_closed_positions)
 
 all_positions_df = pl.LazyFrame(all_positions, schema_overrides=CLOSED_POSITIONS_SCHEMA)
+all_positions_df.collect().write_csv("scripts/validation/outputs/api_positions.csv")
 
 
 def get_pnl_df(
