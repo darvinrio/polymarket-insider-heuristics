@@ -104,7 +104,7 @@ AUDIT_SCHEMA = pl.Schema(
         "maker_token_outcome": pl.String,
         "settlement_value": pl.Float64,
         "condition_id": pl.String,
-        "neg_risk": pl.Float64,
+        "neg_risk": pl.String,
         "question": pl.String,
         "final_outcome": pl.String,
         "market_start_time": pl.String,
@@ -157,7 +157,7 @@ PROBLEMATIC_FILE_SCHEMA = pl.Schema(
         "realizedPnl": pl.Float64,
         "pnl_diff": pl.Float64,
         "pnl_diff_percent": pl.Float64,
-        "is_available": pl.Boolean,
-        "is_infinite": pl.Boolean,
+        "is_available": pl.Int64,
+        "is_inf": pl.Int64,
     }
 )
