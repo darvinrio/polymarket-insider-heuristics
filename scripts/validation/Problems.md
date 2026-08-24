@@ -12,7 +12,6 @@ Ledger Actions:
 2. Transfers `12.85` shares to `0x8B8b9c565C8dCA43cfb767F0F2C20B2B323d2512`
 
 Ledger PnL:
-
 - `-12.83715` USD
 
 API PnL:
@@ -45,4 +44,50 @@ Ledger Activity:
 5. Convert `38` shares for `33.77` USD
 
 Ledger PnL:
-  38.129999999999995
+  - `35.57` USD (0 invested)
+
+--- 
+
+`0x69f0c154a3412f2b3fa7eb22c6d08e6b5b32fb27`
+
+Ledger Activity:
+1. Buy `8.17` shares on CLOB for `8.16183` USD
+2. Sends `8.17` shares to `0x8B8b9c565C8dCA43cfb767F0F2C20B2B323d2512`
+Ledger PnL:
+  - `-8.16183` USD
+API Pnl:
+  - `0` USD
+
+`0x4e72c22cd76f9973a48aedfd79feeaacc8b7ffb9`
+
+Ledger Activity:
+1. Buy `19.11` shares on CLOB for `19.09089` USD
+2. Sends `19.11` shares to `0x8B8b9c565C8dCA43cfb767F0F2C20B2B323d2512`
+Ledger PnL:
+  - `-19.09089` USD
+API Pnl:
+  - `0` USD
+
+`0x1abc2b469b5ded495d6c8b21fc79dcb8d8f345e7`
+
+Ledger Activity:
+1. Buy `12.85` shares on CLOB for `12.83715` USD
+2. Transfers `12.85` shares to `0x8B8b9c565C8dCA43cfb767F0F2C20B2B323d2512`
+Ledger PnL:
+  - `-12.83715` USD
+API Pnl:
+  - `0` USD
+
+Total Ledger PnL of senders:
+  - `-40.08987` USD
+Total Ledger PnL of recipients:
+  - `35.57` USD
+Net Ledger PnL of Cluster:
+  - `-4.51987` USD
+
+Total API Pnl of senders:
+  - `-0.3636` USD
+Total API Pnl of recipients:
+  - `0` USD
+Net API PnL of Cluster:
+  - `-0.3636` USD
