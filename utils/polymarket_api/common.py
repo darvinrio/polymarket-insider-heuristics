@@ -13,9 +13,7 @@ from loguru import logger
 
 # --- Constants ---------------------------------------------------------
 
-REPO_ROOT = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REQUEST_SLEEP = 0.15  # small delay between API calls to be polite
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2.0  # seconds, doubles per retry
