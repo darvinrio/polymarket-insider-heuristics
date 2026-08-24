@@ -202,10 +202,11 @@ trades_level_4 as (
         max_taker_price,
         min_taker_price,
         round(max_taker_price-min_taker_price, 6) as spread,
+        fee as usd_fee,
 
         case when is_full_order then
             'clob__' || lower(maker_side_corrected) || '__' || 'full_order'
-        when maker_asset = taker_asset then
+        when asset_id = taker_asset then
             'clob__' || lower(maker_side_corrected) || '__' || 'swap_fill'
         when taker_side_corrected = 'BUY' then
             'clob__' || lower(maker_side_corrected) || '__' || 'split'
@@ -646,6 +647,7 @@ trade_deltas as (
 
         event_market_name,
         event_market_id,
+        usd_fee,
         maker_usd,
         case
             when maker_side_corrected = 'BUY'
@@ -699,6 +701,7 @@ merges_splits_converts as (
         orders_end_time,
         event_market_name,
         event_market_id,
+        0 as usd_fee,
         shares/2 as usd,
         -shares as shares_delta,
         0 as shares_bought,
@@ -729,6 +732,7 @@ merges_splits_converts as (
         orders_end_time,
         event_market_name,
         event_market_id,
+        0 as usd_fee,
         shares/2 as usd,
         shares as shares_delta,
         shares as shares_bought,
@@ -759,6 +763,7 @@ merges_splits_converts as (
         orders_end_time,
         event_market_name,
         event_market_id,
+        0 as usd_fee,
         (ids_count - 1) * abs(shares) / ids_count  as usd,
         shares as shares_delta,
         shares as shares_bought,
@@ -790,6 +795,7 @@ single_transfer_deltas as (
         orders_end_time,
         event_market_name,
         event_market_id,
+        0 as usd_fee,
         0 as usd,
         -shares as shares_delta,
         0 as shares_bought,
@@ -821,6 +827,7 @@ single_transfer_deltas as (
         orders_end_time,
         event_market_name,
         event_market_id,
+        0 as usd_fee,
         0 as usd,
         shares as shares_delta,
         0 as shares_bought,
@@ -860,6 +867,9 @@ audit_aggr as (
         market_start_time,
         market_end_time,
         orders_end_time,
+
+        sum(usd_fee) as usd_fee,
+
         sum(if(trade_type='clob', shares_delta, 0)) as shares_delta,
         sum(if(trade_type='clob', shares_bought, 0)) as shares_bought,
         sum(if(trade_type='clob', shares_sold, 0)) as shares_sold,
