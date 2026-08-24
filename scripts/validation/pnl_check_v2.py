@@ -2,20 +2,27 @@ import polars as pl
 from loguru import logger
 from tqdm import tqdm
 
-from scripts.validation.closed_positions import get_closed_positions, is_cached
 from scripts.validation.schema import CLOSED_POSITIONS_SCHEMA, SAMPLE_SCHEMA
+from utils.polymarket_api.closed_positions import get_closed_positions, is_cached
+from utils.polymarket_api.open_positions import (
+    get_open_positions,
+)
+from utils.polymarket_api.open_positions import (
+    is_cached as is_open_cached,
+)
 
 logger.success("START")
 
-samples_file = "data/csvs/polymarket_resolutions_stratified_sampling_v2.csv"
+samples_file = "data/csvs/polymarket_resolutions_stratified_sampling_v4.csv"
 # rectified_samples = "data/csvs/polymarket_resolutions_v5_sample_positions_rectified.csv"
 
 keys = ["trader", "token_id", "condition_id"]
 
 samples_df = (
-    pl.scan_csv(samples_file, schema_overrides=SAMPLE_SCHEMA)
-    .with_columns(pl.concat_str(keys, separator="|").alias("key"))
-    .drop(["h", "pnl_bucket", "rn"])
+    pl.scan_csv(samples_file, schema_overrides=SAMPLE_SCHEMA).with_columns(
+        pl.concat_str(keys, separator="|").alias("key")
+    )
+    # .drop(["h", "pnl_bucket", "rn"])
 )
 
 samples_keys = samples_df.select(pl.col("key")).collect()
@@ -37,30 +44,36 @@ trader_condition_df = (
     )
 )
 
-all_positions = []
+all_closed_positions = []
+all_open_positions = []
 trader_condition_rows = trader_condition_df.collect()
 
-fully_cached_traders = 0
-partially_cached_traders = 0
-uncached_traders = 0
-total_pairs = 0
-cached_pairs = 0
-for trader, condition_id_list, _ in trader_condition_rows.iter_rows():
-    total_pairs += len(condition_id_list)
-    hits = sum(is_cached(trader, c) for c in condition_id_list)
-    cached_pairs += hits
-    if hits == len(condition_id_list):
-        fully_cached_traders += 1
-    elif hits > 0:
-        partially_cached_traders += 1
-    else:
-        uncached_traders += 1
 
-logger.info(
-    f"Cache status: {cached_pairs}/{total_pairs} (trader, conditionId) pairs cached | "
-    f"traders fully/partially/not cached: "
-    f"{fully_cached_traders}/{partially_cached_traders}/{uncached_traders}"
-)
+def _cache_status_summary(is_cached_fn) -> str:
+    total_pairs = 0
+    cached_pairs = 0
+    fully_cached_traders = 0
+    partially_cached_traders = 0
+    uncached_traders = 0
+    for trader, condition_id_list, _ in trader_condition_rows.iter_rows():
+        total_pairs += len(condition_id_list)
+        hits = sum(is_cached_fn(trader, c) for c in condition_id_list)
+        cached_pairs += hits
+        if hits == len(condition_id_list):
+            fully_cached_traders += 1
+        elif hits > 0:
+            partially_cached_traders += 1
+        else:
+            uncached_traders += 1
+    return (
+        f"{cached_pairs}/{total_pairs} (trader, conditionId) pairs cached | "
+        f"traders fully/partially/not cached: "
+        f"{fully_cached_traders}/{partially_cached_traders}/{uncached_traders}"
+    )
+
+
+logger.info(f"Cache status: {_cache_status_summary(is_cached)}")
+logger.info(f"Cache status (open): {_cache_status_summary(is_open_cached)}")
 
 for (
     trader,
@@ -75,9 +88,25 @@ for (
         trader=trader,
         condition_ids=condition_id_list,
     )
-    all_positions.extend(trader_closed_positions)
+    all_closed_positions.extend(trader_closed_positions)
+    trader_open_positions = get_open_positions(
+        trader=trader,
+        condition_ids=condition_id_list,
+    )
+    all_open_positions.extend(trader_open_positions)
 
+closed_keys = {(p["proxyWallet"], p["asset"]) for p in all_closed_positions}
+open_keys = {(p["proxyWallet"], p["asset"]) for p in all_open_positions}
+overlap = sorted(closed_keys & open_keys)
+# if overlap:
+#     raise ValueError(
+#         f"{len(overlap)} (proxyWallet, asset) pairs present in BOTH closed and "
+#         f"open endpoints, e.g. {overlap[:5]}"
+#     )
+
+all_positions = all_closed_positions + all_open_positions
 all_positions_df = pl.LazyFrame(all_positions, schema_overrides=CLOSED_POSITIONS_SCHEMA)
+all_positions_df.collect().write_csv("scripts/validation/outputs/api_positions.csv")
 
 
 def get_pnl_df(
