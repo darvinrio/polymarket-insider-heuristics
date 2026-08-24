@@ -7,15 +7,16 @@ from scripts.validation.schema import CLOSED_POSITIONS_SCHEMA, SAMPLE_SCHEMA
 
 logger.success("START")
 
-samples_file = "data/csvs/polymarket_resolutions_stratified_sampling_v2.csv"
+samples_file = "data/csvs/polymarket_resolutions_stratified_sampling_v3.csv"
 # rectified_samples = "data/csvs/polymarket_resolutions_v5_sample_positions_rectified.csv"
 
 keys = ["trader", "token_id", "condition_id"]
 
 samples_df = (
-    pl.scan_csv(samples_file, schema_overrides=SAMPLE_SCHEMA)
-    .with_columns(pl.concat_str(keys, separator="|").alias("key"))
-    .drop(["h", "pnl_bucket", "rn"])
+    pl.scan_csv(samples_file, schema_overrides=SAMPLE_SCHEMA).with_columns(
+        pl.concat_str(keys, separator="|").alias("key")
+    )
+    # .drop(["h", "pnl_bucket", "rn"])
 )
 
 samples_keys = samples_df.select(pl.col("key")).collect()
