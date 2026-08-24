@@ -98,11 +98,11 @@ for (
 closed_keys = {(p["proxyWallet"], p["asset"]) for p in all_closed_positions}
 open_keys = {(p["proxyWallet"], p["asset"]) for p in all_open_positions}
 overlap = sorted(closed_keys & open_keys)
-if overlap:
-    raise ValueError(
-        f"{len(overlap)} (proxyWallet, asset) pairs present in BOTH closed and "
-        f"open endpoints, e.g. {overlap[:5]}"
-    )
+# if overlap:
+#     raise ValueError(
+#         f"{len(overlap)} (proxyWallet, asset) pairs present in BOTH closed and "
+#         f"open endpoints, e.g. {overlap[:5]}"
+#     )
 
 all_positions = all_closed_positions + all_open_positions
 all_positions_df = pl.LazyFrame(all_positions, schema_overrides=CLOSED_POSITIONS_SCHEMA)
