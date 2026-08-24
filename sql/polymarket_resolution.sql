@@ -353,6 +353,7 @@ splits as (
         p.evt_block_time,
         p.evt_block_number,
         p.evt_index,
+        b.evt_index as batch_evt_index,
         b.token_index,
         p.evt_tx_hash,
         b.condition_id,
@@ -417,6 +418,7 @@ merges as (
         p.evt_block_time,
         p.evt_block_number,
         p.evt_index,
+        b.evt_index as batch_evt_index,
         b.token_index,
         p.evt_tx_hash,
         b.condition_id,
@@ -495,6 +497,7 @@ converts_to_yes as (
         p.evt_block_time,
         p.evt_block_number,
         p.evt_index,
+        b.evt_index as batch_evt_index,
         b.token_index,
         p.evt_tx_hash,
         -- p.conditionId as condition_id,
@@ -545,6 +548,7 @@ converts_from_no as (
         p.evt_block_time,
         p.evt_block_number,
         p.evt_index,
+        b.evt_index as batch_evt_index,
         b.token_index,
         p.evt_tx_hash,
         -- p.conditionId as condition_id,
@@ -609,6 +613,7 @@ trade_deltas as (
     select
         block_time,
         evt_index,
+        0 as batch_evt_index,
         0 as token_index,
         block_number,
         tx_hash,
@@ -661,6 +666,7 @@ merges_splits_converts as (
     select
         evt_block_time as block_time,
         evt_index,
+        batch_evt_index,
         token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
@@ -689,6 +695,7 @@ merges_splits_converts as (
     select
         evt_block_time as block_time,
         evt_index,
+        batch_evt_index,
         token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
@@ -717,6 +724,7 @@ merges_splits_converts as (
     select
         evt_block_time as block_time,
         evt_index,
+        batch_evt_index,
         token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
@@ -746,6 +754,7 @@ single_transfer_deltas as (
     select
         evt_block_time as block_time,
         evt_index,
+        evt_index as batch_evt_index,
         0 as token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
@@ -775,6 +784,7 @@ single_transfer_deltas as (
     select
         evt_block_time as block_time,
         evt_index,
+        evt_index as batch_evt_index,
         0 as token_index,
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
