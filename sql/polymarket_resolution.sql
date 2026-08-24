@@ -201,7 +201,20 @@ trades_level_4 as (
         taker_usd,
         max_taker_price,
         min_taker_price,
-        round(max_taker_price-min_taker_price, 6) as spread
+        round(max_taker_price-min_taker_price, 6) as spread,
+
+        case when is_full_order then
+            'clob__' || lower(maker_side_corrected) || '__' || 'full_order'
+        when maker_asset = taker_asset then
+            'clob__' || lower(maker_side_corrected) || '__' || 'swap_fill'
+        when taker_side_corrected = 'BUY' then
+            'clob__' || lower(maker_side_corrected) || '__' || 'split'
+        when taker_side_corrected = 'SELL' then
+            'clob__' || lower(maker_side_corrected) || '__' || 'merge'
+        else
+            'clob__' || lower(maker_side_corrected)
+        end as trade_type
+
         -- This is redundant and incorrect
         -- case when taker_price > 0.95
         --     and lower(final_outcome) = lower(taker_token_outcome)
@@ -659,7 +672,8 @@ trade_deltas as (
             when maker_side_corrected = 'SELL'
             then maker_usd
             else 0
-        end as usd_realized
+        end as usd_realized,
+        trade_type
     from trades_level_4
     where true
 ),
@@ -828,8 +842,7 @@ audit_txs as (
     from non_trade_txs
     where tx_hash not in (select tx_hash from trades_level_1)
     union all
-    select *,
-        'clob' as trade_type
+    select *
     from trade_deltas
 ),
 audit_aggr as (
