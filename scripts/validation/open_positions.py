@@ -83,9 +83,7 @@ def _chunked(seq, size):
 
 def _project_to_closed_columns(item: dict) -> dict:
     """Keep only the closed-positions columns, mapping `realizedPnl` <- `cashPnl`."""
-    return {
-        col: item.get(_OPEN_SOURCE_FIELD.get(col, col)) for col in _CLOSED_COLUMNS
-    }
+    return {col: item.get(_OPEN_SOURCE_FIELD.get(col, col)) for col in _CLOSED_COLUMNS}
 
 
 def _get_page(params: dict) -> list:
@@ -230,9 +228,9 @@ def get_open_positions(
             results.extend(_project_to_closed_columns(item) for item in cid_items)
             fetched_positions += len(cid_items)
 
-        logger.info(
-            f"{trader}: chunk {len(market_chunk)} cids -> {fetched_positions} positions"
-        )
+        # logger.info(
+        #     f"{trader}: chunk {len(market_chunk)} cids -> {fetched_positions} positions"
+        # )
 
         if chunk_interrupted:
             interrupted = True
