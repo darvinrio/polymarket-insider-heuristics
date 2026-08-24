@@ -2,11 +2,11 @@ import polars as pl
 from loguru import logger
 from tqdm import tqdm
 
-from scripts.validation.closed_positions import get_closed_positions, is_cached
-from scripts.validation.open_positions import (
+from utils.polymarket_api.closed_positions import get_closed_positions, is_cached
+from utils.polymarket_api.open_positions import (
     get_open_positions,
 )
-from scripts.validation.open_positions import (
+from utils.polymarket_api.open_positions import (
     is_cached as is_open_cached,
 )
 from scripts.validation.schema import CLOSED_POSITIONS_SCHEMA, SAMPLE_SCHEMA

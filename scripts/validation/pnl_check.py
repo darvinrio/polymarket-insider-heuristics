@@ -1,7 +1,7 @@
 import polars as pl
 from loguru import logger
 
-from scripts.validation.closed_positions import get_closed_positions
+from utils.polymarket_api.closed_positions import get_closed_positions
 from scripts.validation.schema import CLOSED_POSITIONS_SCHEMA, SAMPLE_SCHEMA
 
 samples_file = "data/csvs/polymarket_resolutions_stratified_sampling.csv"
