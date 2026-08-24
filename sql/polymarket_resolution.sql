@@ -479,7 +479,12 @@ merges as (
 converts_events as (
     select *,
         -- lag(evt_block_number) over (order by evt_block_number, evt_index) as prev_block_number,
-        lag(evt_index) over (order by evt_block_number, evt_index) as prev_evt_index
+        -- lag(evt_index) over (order by evt_block_number, evt_index) as prev_evt_index
+        case
+            when lag(evt_block_number) over (order by evt_block_number, evt_index) = evt_block_number
+            then lag(evt_index) over (order by evt_block_number, evt_index)
+            else -1
+        end as prev_evt_index
     from polymarket_polygon.negriskadapter_evt_positionsconverted
     where true
     and evt_block_date >= date'2026-05-01'
