@@ -27,35 +27,42 @@ def configure_logging() -> None:
     logger.add(sys.stderr, level="INFO")
 
 
-def join_and_filter(events: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
+def join_and_filter(events: pl.LazyFrame, markets: pl.LazyFrame) -> pl.LazyFrame:
     """Inner-join events with markets and keep only Google Search markets.
+
+    Logs joined, kept, and dropped counts from a one-row aggregate collect;
+    the event data itself stays lazy.
 
     Args:
         events: LazyFrame of trade events.
         markets: LazyFrame of market metadata.
 
     Returns:
-        DataFrame with events on markets tagged `Google Search`.
+        LazyFrame with events on markets tagged `Google Search`.
     """
     joined = events.join(
         markets.select("token_id", "question", "tags"), on="token_id", how="inner"
+    )
+    counts = joined.select(
+        pl.len().alias("n_joined"),
+        pl.col("tags").str.contains(TAG_FILTER).sum().alias("n_kept"),
     ).collect()
-    kept = joined.filter(pl.col("tags").str.contains(TAG_FILTER))
-    dropped = joined.height - kept.height
-    logger.info(f"Joined events: {joined.height:,}")
-    logger.info(f"Kept ({TAG_FILTER!r} markets): {kept.height:,}")
-    logger.info(f"Dropped by tag filter: {dropped:,}")
-    return kept
+    n_joined = int(counts["n_joined"].item())
+    n_kept = int(counts["n_kept"].item())
+    logger.info(f"Joined events: {n_joined:,}")
+    logger.info(f"Kept ({TAG_FILTER!r} markets): {n_kept:,}")
+    logger.info(f"Dropped by tag filter: {n_joined - n_kept:,}")
+    return joined.filter(pl.col("tags").str.contains(TAG_FILTER))
 
 
-def compute_running_shares(df: pl.DataFrame) -> pl.DataFrame:
+def compute_running_shares(df: pl.LazyFrame) -> pl.LazyFrame:
     """Compute the running share balance per trader and token.
 
     Args:
-        df: Joined and filtered event DataFrame.
+        df: Joined and filtered event LazyFrame.
 
     Returns:
-        DataFrame sorted within each group with a ``running_shares`` column.
+        LazyFrame sorted within each group with a ``running_shares`` column.
     """
     return df.sort("trader", "token_id", "block_time", "evt_index").with_columns(
         pl.col("shares_delta")
@@ -65,41 +72,49 @@ def compute_running_shares(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def check_running_shares(df: pl.DataFrame) -> bool:
+def check_running_shares(df: pl.LazyFrame) -> bool:
     """Verify running share balances never drop to the allowed floor or below.
 
+    Only small aggregate results are collected for reporting; the event data
+    itself stays lazy.
+
     Args:
-        df: DataFrame with a ``running_shares`` column.
+        df: LazyFrame with a ``running_shares`` column.
 
     Returns:
         True if the check passes, False otherwise.
     """
-    violations = df.filter(pl.col("running_shares") <= MIN_RUNNING_SHARES)
-    if violations.is_empty():
+    n_violations = int(
+        df.select((pl.col("running_shares") <= MIN_RUNNING_SHARES).sum().alias("n"))
+        .collect()
+        .item()
+    )
+    if n_violations == 0:
         logger.success(
             f"Check 1 passed: no running share balance <= {MIN_RUNNING_SHARES:,}"
         )
         return True
-    n_groups = violations.select("trader", "token_id").unique().height
-    worst = (
+    violating_groups = (
         df.group_by("trader", "token_id")
         .agg(pl.col("running_shares").min(), pl.col("question").first())
+        .filter(pl.col("running_shares") <= MIN_RUNNING_SHARES)
         .sort("running_shares")
-        .head(10)
     )
+    n_groups = int(violating_groups.select(pl.len()).collect().item())
+    worst = violating_groups.head(10).collect()
     logger.error(
-        f"Check 1 failed: {violations.height:,} rows across {n_groups:,} "
+        f"Check 1 failed: {n_violations:,} rows across {n_groups:,} "
         f"trader/token groups reached <= {MIN_RUNNING_SHARES:,}"
     )
     logger.debug(f"Worst offenders:\n{worst}")
     return False
 
 
-def check_usd_totals(df: pl.DataFrame) -> bool:
+def check_usd_totals(df: pl.LazyFrame) -> bool:
     """Verify total realized USD does not exceed total invested USD globally.
 
     Args:
-        df: Joined and filtered event DataFrame.
+        df: Joined and filtered event LazyFrame.
 
     Returns:
         True if the check passes, False otherwise.
@@ -107,7 +122,7 @@ def check_usd_totals(df: pl.DataFrame) -> bool:
     totals = df.select(
         pl.col("usd_invested").sum().alias("total_invested"),
         pl.col("usd_realized").sum().alias("total_realized"),
-    )
+    ).collect()
     total_invested: Decimal = totals["total_invested"].item()
     total_realized: Decimal = totals["total_realized"].item()
     logger.info(f"Total USD invested: {total_invested:,.2f}")
