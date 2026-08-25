@@ -25,3 +25,6 @@ wheels/
 
 # Cache
 data/cache/
+
+# Parquet
+*.parquet
