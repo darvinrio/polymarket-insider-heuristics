@@ -20,5 +20,8 @@ wheels/
 !polymarket_sus_score_precentiles.csv
 !polymarket_sus_score_v2.csv
 
+# JSON files
+*.json
+
 # Cache
 data/cache/

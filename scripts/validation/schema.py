@@ -69,3 +69,95 @@ CLOSED_POSITIONS_SCHEMA = pl.Schema(
         "timestamp": pl.Int128,
     }
 )
+
+API_POSITIONS_SCHEMA = pl.Schema(
+    {
+        "proxyWallet": pl.String,
+        "asset": pl.String,
+        "conditionId": pl.String,
+        "avgPrice": pl.Float64,
+        "totalBought": pl.Float64,
+        "realizedPnl": pl.Float64,
+        "curPrice": pl.Float64,
+        "title": pl.String,
+        "slug": pl.String,
+        "icon": pl.String,
+        "eventSlug": pl.String,
+        "outcome": pl.String,
+        "outcomeIndex": pl.Float64,
+        "oppositeOutcome": pl.String,
+        "oppositeAsset": pl.String,
+        "endDate": pl.String,
+        "timestamp": pl.Int128,
+    }
+)
+
+AUDIT_SCHEMA = pl.Schema(
+    {
+        "block_time": pl.String,
+        "evt_index": pl.Int64,
+        "token_index": pl.Int64,
+        "block_number": pl.Int64,
+        "tx_hash": pl.String,
+        "trader": pl.String,
+        "token_id": pl.String,
+        "maker_token_outcome": pl.String,
+        "settlement_value": pl.Float64,
+        "condition_id": pl.String,
+        "neg_risk": pl.String,
+        "question": pl.String,
+        "final_outcome": pl.String,
+        "market_start_time": pl.String,
+        "market_end_time": pl.String,
+        "orders_end_time": pl.String,
+        "event_market_name": pl.String,
+        "event_market_id": pl.String,
+        "usd": pl.Float64,
+        "shares_delta": pl.Float64,
+        "shares_bought": pl.Float64,
+        "shares_sold": pl.Float64,
+        "usd_invested": pl.Float64,
+        "usd_realized": pl.Float64,
+        "trade_type": pl.String,
+    }
+)
+
+USER_ACTIVITY_SCHEMA = pl.Schema(
+    {
+        "proxyWallet": pl.String,
+        "timestamp": pl.Int64,
+        "conditionId": pl.String,
+        "type": pl.String,
+        "size": pl.Float64,
+        "usdcSize": pl.Float64,
+        "transactionHash": pl.String,
+        "price": pl.Float64,
+        "asset": pl.String,
+        "side": pl.String,
+        "outcomeIndex": pl.Float64,
+        "title": pl.String,
+        "slug": pl.String,
+        "icon": pl.String,
+        "eventSlug": pl.String,
+        "outcome": pl.String,
+        "name": pl.String,
+        "pseudonym": pl.String,
+        "bio": pl.String,
+        "profileImage": pl.String,
+        "profileImageOptimized": pl.String,
+    }
+)
+
+PROBLEMATIC_FILE_SCHEMA = pl.Schema(
+    {
+        "trader": pl.String,
+        "token_id": pl.String,
+        "condition_id": pl.String,
+        "final_profit": pl.Float64,
+        "realizedPnl": pl.Float64,
+        "pnl_diff": pl.Float64,
+        "pnl_diff_percent": pl.Float64,
+        "is_available": pl.Int64,
+        "is_inf": pl.Int64,
+    }
+)
