@@ -17,7 +17,6 @@ TRADE_TYPE_ENUM = pl.Enum(
     ]
 )
 
-
 EVENTS_SCHEMA = {
     "block_time": pl.String,
     "evt_index": pl.Int64,

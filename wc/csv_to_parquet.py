@@ -1,11 +1,12 @@
 import polars as pl
-from schema import EVENTS_SCHEMA, TRADE_TYPE_ENUM
+from schema import EVENTS_SCHEMA, MARKETS_SCHEMA, TRADE_TYPE_ENUM
 
 
 def date_parse(date_col: pl.Expr) -> pl.Expr:
     return date_col.str.to_datetime("%Y-%m-%d %H:%M:%S%.3f UTC")
 
 
+## combine events df
 no_clob_df = pl.scan_csv(
     "data/wc_no_clob.csv", schema_overrides=EVENTS_SCHEMA
 ).with_columns(date_parse(pl.col("block_time")))
@@ -27,8 +28,10 @@ full_order_buy_df = pl.scan_csv(
 )
 events_df = pl.concat([no_clob_df, batch_2_df, split_buy_df, full_order_buy_df])
 
+# markets
+markets_df = pl.scan_csv("data/wc_markets.csv", schema=MARKETS_SCHEMA)
 
 print(events_df.head().collect())
 
-
-events_df.collect().write_parquet("wc/data/wc_events.parquet")
+# events_df.collect().write_parquet("wc/data/wc_events.parquet")
+# markets_df.collect().write_parquet("wc/data/wc_markets.parquet")
